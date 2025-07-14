@@ -66,13 +66,13 @@ class Config:
                 },
                 "face_detection": {
                     "enabled": True,
-                    "model_path": "/root/models/yolov8n_face.mud",
-                    "confidence_threshold": 0.7,
+                    "model_path": "/root/models/retinaface.mud",
+                    "confidence_threshold": 0.4,
                     "processing_interval": 5,
                     "priority": 2
                 },
                 "face_emotion": {
-                    "enabled": True,
+                    "enabled": False,
                     "model_path": "/root/models/face_emotion.mud",
                     "confidence_threshold": 0.6,
                     "processing_interval": 10,
@@ -95,7 +95,7 @@ class Config:
                 "pose_detection": {
                     "enabled": False,
                     "model_path": "/root/models/yolov8n_pose.mud",
-                    "confidence_threshold": 0.6,
+                    "confidence_threshold": 0.5,
                     "processing_interval": 12,
                     "priority": 6
                 },

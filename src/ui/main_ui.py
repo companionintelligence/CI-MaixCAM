@@ -7,9 +7,8 @@ Date: July 13, 2025
 """
 
 import time
-from maix import image, display
+from maix import image, display, time as maix_time
 from utils.logger import get_logger
-from utils.time_utils import get_time_ms, get_time_diff_ms
 from .ui_elements import Button, Checkbox, StatusBar
 
 logger = get_logger('UI')

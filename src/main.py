@@ -17,14 +17,13 @@ Version: 1.0.0
 import sys
 import time
 import gc
-from maix import app, display, camera, touchscreen
+from maix import app, display, camera, touchscreen, time as maix_time
 from ui.main_ui import MainUI
 from ai_engine.ai_engine import AIEngine
 from data_logger.logger import DataLogger
 from network.uploader import NetworkUploader
 from utils.config import Config
 from utils.logger import setup_logging
-from utils.time_utils import get_time_ms, get_time_diff_ms, get_free_memory, sleep_ms
 
 # Setup logging
 logger = setup_logging()
@@ -56,7 +55,7 @@ class CompanionCaptureApp:
         
         # Performance monitoring
         self.frame_count = 0
-        self.last_fps_time = get_time_ms()
+        self.last_fps_time = time.ticks_ms()
         self.fps = 0
         
         # Initialize all components
@@ -128,9 +127,9 @@ class CompanionCaptureApp:
     def _update_fps(self):
         """Update FPS counter"""
         self.frame_count += 1
-        current_time = get_time_ms()
+        current_time = time.ticks_ms()
         
-        if get_time_diff_ms(self.last_fps_time, current_time) >= 1000:  # Update every second
+        if time.ticks_diff(current_time, self.last_fps_time) >= 1000:  # Update every second
             self.fps = self.frame_count
             self.frame_count = 0
             self.last_fps_time = current_time
@@ -187,7 +186,7 @@ class CompanionCaptureApp:
         # Force garbage collection every 100 frames
         if self.frame_count % 100 == 0:
             gc.collect()
-            free_memory = get_free_memory()
+            free_memory = gc.mem_free()
             logger.debug(f"Memory management: {free_memory} bytes free")
             
             # Check for memory warnings
@@ -218,7 +217,7 @@ class CompanionCaptureApp:
                 self.ui.update_status({
                     'state': self.state,
                     'fps': self.fps,
-                    'memory_free': get_free_memory(),
+                    'memory_free': gc.mem_free(),
                     'ai_models_active': self.ai_engine.get_active_models(),
                     'storage_used': self.data_logger.get_storage_usage()
                 })
@@ -230,7 +229,7 @@ class CompanionCaptureApp:
                 self._memory_management()
                 
                 # Small delay to prevent overwhelming the system (~30 FPS)
-                sleep_ms(33)
+                time.sleep_ms(33)
                 
         except KeyboardInterrupt:
             logger.info("Application interrupted by user")

@@ -8,9 +8,8 @@ Date: July 13, 2025
 
 import time
 import gc
-from maix import nn, image
+from maix import nn, image, time as maix_time
 from utils.logger import get_logger
-from utils.time_utils import get_time_ms, get_time_diff_ms
 
 logger = get_logger('AIEngine')
 
@@ -66,8 +65,9 @@ class AIEngine:
             }
         
         elif model_name == "face_detection":
+            # Use Retinaface for better face detection
             self.models[model_name] = {
-                "model": nn.YOLOv8(model=model_path, dual_buff=True),
+                "model": nn.Retinaface(model=model_path, dual_buff=True),
                 "config": model_config,
                 "type": "face_detection"
             }
@@ -82,7 +82,7 @@ class AIEngine:
         
         elif model_name == "ocr":
             self.models[model_name] = {
-                "model": None,  # OCR model initialization
+                "model": nn.PP_OCR(model=model_path),
                 "config": model_config,
                 "type": "ocr"
             }
@@ -95,9 +95,12 @@ class AIEngine:
             }
         
         elif model_name == "pose_detection":
+            # Use YOLOv8 pose model
             self.models[model_name] = {
                 "model": nn.YOLOv8(model=model_path, dual_buff=True),
                 "config": model_config,
+                "type": "pose_detection"
+            }
                 "type": "pose_detection"
             }
         
@@ -144,13 +147,13 @@ class AIEngine:
     
     def _should_process_model(self, model_name):
         """Check if model should be processed based on interval"""
-        current_time = get_time_ms()
+        current_time = time.ticks_ms()
         model_config = self.models[model_name]["config"]
         interval = model_config.get("processing_interval", 1) * 1000  # Convert to ms
         
         last_time = self.last_process_time.get(model_name, 0)
         
-        if get_time_diff_ms(last_time, current_time) >= interval:
+        if time.ticks_diff(current_time, last_time) >= interval:
             self.last_process_time[model_name] = current_time
             return True
         
@@ -174,14 +177,14 @@ class AIEngine:
         # Check if this model should be processed based on its interval
         if self._should_process_model(model_name):
             try:
-                start_time = get_time_ms()
+                start_time = time.ticks_ms()
                 
                 # Process with the selected model
                 model_events = self._process_single_model(img, model_name)
                 events.extend(model_events)
                 
                 # Track processing time
-                processing_time = get_time_diff_ms(start_time)
+                processing_time = time.ticks_diff(time.ticks_ms(), start_time)
                 self.processing_times[model_name] = processing_time
                 
                 logger.debug(f"Processed {model_name} in {processing_time}ms")
@@ -244,7 +247,7 @@ class AIEngine:
                     })
                 
                 event = {
-                    "timestamp": get_time_ms(),
+                    "timestamp": time.ticks_ms(),
                     "type": "object_detection",
                     "model": "yolov8",
                     "objects": objects,
@@ -276,9 +279,9 @@ class AIEngine:
                     })
                 
                 event = {
-                    "timestamp": get_time_ms(),
+                    "timestamp": time.ticks_ms(),
                     "type": "face_detection",
-                    "model": "yolov8_face",
+                    "model": "retinaface",
                     "faces": face_list,
                     "count": len(face_list)
                 }
@@ -296,21 +299,21 @@ class AIEngine:
         
         try:
             # Run pose detection
-            poses = model.detect(img, conf_th=confidence_threshold)
+            poses = model.detect(img, conf_th=confidence_threshold, keypoint_th=0.5)
             
             if poses:
                 pose_list = []
                 for pose in poses:
-                    # Extract keypoints (this would need to be adapted based on actual API)
+                    # Extract keypoints for pose detection
                     pose_data = {
                         "confidence": pose.score,
                         "bbox": [pose.x, pose.y, pose.w, pose.h],
-                        "keypoints": []  # Would contain 17 keypoints for human pose
+                        "keypoints": pose.points  # 17 keypoints for human pose
                     }
                     pose_list.append(pose_data)
                 
                 event = {
-                    "timestamp": get_time_ms(),
+                    "timestamp": time.ticks_ms(),
                     "type": "pose_detection",
                     "model": "yolov8_pose",
                     "poses": pose_list,
@@ -330,8 +333,35 @@ class AIEngine:
     
     def _process_ocr(self, img, model, config):
         """Process OCR text recognition"""
-        # OCR implementation would go here
-        return []
+        events = []
+        
+        try:
+            # Run OCR detection
+            text_objs = model.detect(img)
+            
+            if text_objs:
+                text_list = []
+                for obj in text_objs:
+                    text_data = {
+                        "text": obj.char_str(),
+                        "confidence": obj.score if hasattr(obj, 'score') else 1.0,
+                        "bbox": obj.box.to_list()
+                    }
+                    text_list.append(text_data)
+                
+                event = {
+                    "timestamp": time.ticks_ms(),
+                    "type": "ocr_detection",
+                    "model": "pp_ocr",
+                    "texts": text_list,
+                    "count": len(text_list)
+                }
+                events.append(event)
+        
+        except Exception as e:
+            logger.error(f"OCR detection error: {e}")
+        
+        return events
     
     def _process_hand_detection(self, img, model, config):
         """Process hand landmark detection"""
