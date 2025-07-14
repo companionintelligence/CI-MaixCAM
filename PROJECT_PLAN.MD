@@ -60,10 +60,10 @@ All features will be implemented using the MaixPy framework and its comprehensiv
 
 | Step | Task | Description | Status |
 |------|------|-------------|--------|
-| 1 | Initial Setup | Setup Sipeed MaxiCam hardware and install MaixPy firmware. Verify device functionality. | ☐ |
-| 2 | Development Environment | Install and configure MaixPy IDE. Ensure serial and Wi-Fi connectivity. | ☐ |
-| 3 | UI Design | Design simple user interface with preview, start, stop, log, and detection model toggle checkboxes. | ☐ |
-| 4 | Camera Integration | Develop and test camera preview and video recording functionalities. | ☐ |
+| 1 | Initial Setup | Setup Sipeed MaxiCam hardware and install MaixPy firmware. Verify device functionality. | ✅ |
+| 2 | Development Environment | Install and configure MaixPy IDE. Ensure serial and Wi-Fi connectivity. | ✅ |
+| 3 | UI Design | Design simple user interface with preview, start, stop, log, and detection model toggle checkboxes. | ✅ |
+| 4 | Camera Integration | Develop and test camera preview and video recording functionalities. | 🚧 |
 | 5 | Audio Integration | Integrate audio recording and playback functionalities; verify real-time voice recognition. | ☐ |
 | 6 | Object Classification | Implement object classification model; output JSON with timestamp, confidence scores, and sensor details. | ☐ |
 | 7 | Face Recognition & Emotion | Implement facial recognition and emotion detection models; ensure accurate JSON outputs. | ☐ |
@@ -806,3 +806,137 @@ logging.basicConfig(
 *Last Updated: July 13, 2025*
 *Document Version: 1.0*
 *Project Status: Planning Phase*
+
+---
+
+## GETTING STARTED - STEP 1 IMPLEMENTATION
+
+### Immediate Next Actions (Step 1.1 - 1.4)
+
+**Prerequisites:**
+- [ ] MaixCAM device unboxed and inspected
+- [ ] MicroSD card (32GB+ Class 10) ready
+- [ ] USB-C cable for connection
+- [ ] Computer with internet access
+
+**Critical First Steps:**
+
+#### 1.1 Hardware Inspection ✅
+- [ ] Unbox MaixCAM device carefully
+- [ ] Check for physical damage to screen, camera, connectors
+- [ ] Verify all accessories included (USB-C cable, documentation)
+- [ ] Note device model and any visible serial numbers
+
+#### 1.2 MicroSD Card Setup ✅
+- [ ] Insert 32GB+ MicroSD card into device
+- [ ] Ensure card is properly seated and clicks into place
+- [ ] Card should be formatted as FAT32 (device will reformat if needed)
+
+#### 1.3 Download MaixPy v4 Firmware ✅
+**Official Sources:**
+- Primary: [Sipeed MaixPy Releases](https://github.com/sipeed/MaixPy/releases)
+- Backup: [Sipeed Download Center](https://dl.sipeed.com/shareURL/MaixCAM/MaixPy)
+
+**What to Download:**
+```
+maixcam_*_maixpy_*.img.xz
+```
+Look for the latest stable release (not beta/alpha)
+
+#### 1.4 Flash Firmware ✅
+**Flashing Tools Options:**
+1. **MaixVision IDE** (Recommended - includes flashing capability)
+2. **Sipeed USB Flash Tool** 
+3. **Balena Etcher** (for .img files)
+
+**Flashing Steps:**
+1. Extract the .img.xz file to get the .img file
+2. Connect MaixCAM via USB-C while holding boot button
+3. Device should appear in flash tool
+4. Select the .img file and flash
+5. Wait for completion (5-10 minutes)
+
+### Quick Verification Commands
+
+Once device boots, test these via MaixVision IDE or SSH:
+
+```python
+# Test 1: Basic system check
+from maix import camera, display
+print("MaixPy imported successfully!")
+
+# Test 2: Camera test
+try:
+    cam = camera.Camera(640, 480)
+    print("Camera initialized!")
+    cam.close()
+except Exception as e:
+    print(f"Camera error: {e}")
+
+# Test 3: Display test
+try:
+    disp = display.Display()
+    print(f"Display: {disp.width()}x{disp.height()}")
+except Exception as e:
+    print(f"Display error: {e}")
+
+# Test 4: Check AI models
+import os
+models_path = "/root/models"
+if os.path.exists(models_path):
+    models = os.listdir(models_path)
+    print(f"Found {len(models)} AI models:")
+    for model in models[:5]:  # Show first 5
+        print(f"  - {model}")
+else:
+    print("Models directory not found!")
+
+# Test 5: Storage check
+import os
+storage_info = os.statvfs("/sd")
+free_gb = (storage_info.f_bavail * storage_info.f_frsize) / (1024**3)
+print(f"SD card free space: {free_gb:.1f} GB")
+```
+
+### Troubleshooting Step 1
+
+| Issue | Solution |
+|-------|----------|
+| Device won't power on | Check USB-C connection, try different cable/port |
+| Flash tool doesn't detect device | Hold boot button while connecting USB |
+| Firmware flash fails | Try different USB port, check file integrity |
+| Screen stays black after flash | Wait 2-3 minutes for first boot, try power cycle |
+| Models missing from /root/models/ | Re-flash with complete firmware image |
+
+### Documentation Template
+
+Create a setup log as you go:
+
+```
+MaixCAM Setup Log - [Date]
+========================
+
+Hardware:
+- Device Model: MaixCAM [version]
+- Serial Number: [if visible]
+- SD Card: [brand/size]
+- Physical condition: [OK/Issues noted]
+
+Firmware:
+- Downloaded from: [URL]
+- File: [filename]
+- Flash tool used: [MaixVision/Other]
+- Flash duration: [minutes]
+- First boot time: [seconds]
+
+Verification:
+- Camera: [✅/❌]
+- Display: [✅/❌] 
+- AI Models count: [number]
+- Storage free: [GB]
+- Any issues: [describe]
+
+Next Steps:
+- [ ] Proceed to Step 2 (Development Environment)
+- [ ] Document any problems for troubleshooting
+```

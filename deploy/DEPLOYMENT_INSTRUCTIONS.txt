@@ -1,0 +1,53 @@
+
+🚀 DEPLOYMENT INSTRUCTIONS FOR MAIXCAM
+=======================================
+
+1. CONNECT TO YOUR MAIXCAM DEVICE:
+   
+   Method A - USB Cable:
+   - Connect MaixCAM via USB-C cable
+   - Use MaixVision IDE file manager
+   
+   Method B - SSH (if WiFi configured):
+   ssh root@<MAIXCAM_IP_ADDRESS>
+
+2. TRANSFER FILES:
+   
+   Method A - Using MaixVision IDE:
+   - Open MaixVision IDE
+   - Connect to device
+   - Use file manager to upload 'companion_capture' folder to /root/
+   
+   Method B - Using SCP:
+   scp -r deploy/companion_capture/ root@<MAIXCAM_IP>:/root/
+   
+   Method C - Manual copy:
+   - Copy files via USB storage mode
+   - Place in /root/companion_capture/
+
+3. SET PERMISSIONS (if needed):
+   chmod +x /root/companion_capture/main.py
+
+4. RUN THE APPLICATION:
+   cd /root/companion_capture
+   python main.py
+
+5. CONFIGURATION:
+   - Config file will be created at: /sd/config/app_config.json
+   - Logs will be stored at: /sd/logs/
+   - Modify settings as needed
+
+6. TROUBLESHOOTING:
+   - Check logs: tail -f /sd/system.log
+   - Monitor memory: free -h
+   - Check storage: df -h /sd
+
+FIRST RUN CHECKLIST:
+- [ ] Device boots correctly
+- [ ] Camera preview appears
+- [ ] Touch interface responds
+- [ ] AI models load (check console output)
+- [ ] Start/Stop button works
+- [ ] Events are logged to /sd/logs/
+
+For detailed documentation, see README.md
