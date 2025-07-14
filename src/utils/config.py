@@ -46,14 +46,14 @@ class Config:
                 "preview_area": {
                     "x": 0,
                     "y": 0,
-                    "width": 440,
-                    "height": 320
+                    "width": 480,
+                    "height": 360
                 },
                 "ui_area": {
-                    "x": 440,
+                    "x": 480,
                     "y": 0,
-                    "width": 112,
-                    "height": 368
+                    "width": 160,
+                    "height": 480
                 }
             },
             "ai_models": {

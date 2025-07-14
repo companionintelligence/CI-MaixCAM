@@ -10,6 +10,7 @@ import time
 import gc
 from maix import nn, image
 from utils.logger import get_logger
+from utils.time_utils import get_time_ms, get_time_diff_ms
 
 logger = get_logger('AIEngine')
 
@@ -143,13 +144,13 @@ class AIEngine:
     
     def _should_process_model(self, model_name):
         """Check if model should be processed based on interval"""
-        current_time = time.ticks_ms()
+        current_time = get_time_ms()
         model_config = self.models[model_name]["config"]
         interval = model_config.get("processing_interval", 1) * 1000  # Convert to ms
         
         last_time = self.last_process_time.get(model_name, 0)
         
-        if time.ticks_diff(current_time, last_time) >= interval:
+        if get_time_diff_ms(last_time, current_time) >= interval:
             self.last_process_time[model_name] = current_time
             return True
         
@@ -173,14 +174,14 @@ class AIEngine:
         # Check if this model should be processed based on its interval
         if self._should_process_model(model_name):
             try:
-                start_time = time.ticks_ms()
+                start_time = get_time_ms()
                 
                 # Process with the selected model
                 model_events = self._process_single_model(img, model_name)
                 events.extend(model_events)
                 
                 # Track processing time
-                processing_time = time.ticks_diff(time.ticks_ms(), start_time)
+                processing_time = get_time_diff_ms(start_time)
                 self.processing_times[model_name] = processing_time
                 
                 logger.debug(f"Processed {model_name} in {processing_time}ms")
@@ -243,7 +244,7 @@ class AIEngine:
                     })
                 
                 event = {
-                    "timestamp": time.ticks_ms(),
+                    "timestamp": get_time_ms(),
                     "type": "object_detection",
                     "model": "yolov8",
                     "objects": objects,
@@ -275,7 +276,7 @@ class AIEngine:
                     })
                 
                 event = {
-                    "timestamp": time.ticks_ms(),
+                    "timestamp": get_time_ms(),
                     "type": "face_detection",
                     "model": "yolov8_face",
                     "faces": face_list,
@@ -309,7 +310,7 @@ class AIEngine:
                     pose_list.append(pose_data)
                 
                 event = {
-                    "timestamp": time.ticks_ms(),
+                    "timestamp": get_time_ms(),
                     "type": "pose_detection",
                     "model": "yolov8_pose",
                     "poses": pose_list,

@@ -12,6 +12,8 @@ import time
 import uuid
 from datetime import datetime
 from utils.logger import get_logger
+from utils.time_utils import get_time_ms, get_free_memory
+from utils.time_utils import get_time_ms, get_iso_timestamp
 
 logger = get_logger('DataLogger')
 
@@ -175,7 +177,7 @@ class DataLogger:
         processed_event = {
             "event_id": event_id,
             "timestamp": timestamp_iso,
-            "timestamp_ms": event.get("timestamp", time.ticks_ms()),
+            "timestamp_ms": event.get("timestamp", get_time_ms()),
             "session_id": self.current_session_id,
             "type": event.get("type", "unknown"),
             "model": event.get("model", "unknown"),
@@ -228,9 +230,8 @@ class DataLogger:
     def _get_memory_usage(self):
         """Get current memory usage"""
         try:
-            import gc
             return {
-                "free_bytes": gc.mem_free(),
+                "free_bytes": get_free_memory(),
                 "used_bytes": None  # Would need system-specific implementation
             }
         except:

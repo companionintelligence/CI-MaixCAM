@@ -43,16 +43,16 @@ class Button:
         color = self.color_pressed if self.pressed else self.color_normal
         
         # Draw button background
-        img.draw_rect(draw_x, draw_y, self.width, self.height, color, -1)
+        img.draw_rect(draw_x, draw_y, self.width, self.height, image.Color.from_rgb(*color), -1)
         
         # Draw button border
-        img.draw_rect(draw_x, draw_y, self.width, self.height, (200, 200, 200), 2)
+        img.draw_rect(draw_x, draw_y, self.width, self.height, image.Color.from_rgb(200, 200, 200), 2)
         
         # Draw text centered
         if self.text:
             text_x = draw_x + (self.width - len(self.text) * 6) // 2
             text_y = draw_y + (self.height - 12) // 2
-            img.draw_string(text_x, text_y, self.text, self.text_color)
+            img.draw_string(text_x, text_y, self.text, image.Color.from_rgb(*self.text_color))
 
 class Checkbox:
     """Custom checkbox UI element"""
@@ -91,10 +91,10 @@ class Checkbox:
         color = self.color_checked if self.checked else self.color_unchecked
         
         # Draw checkbox box
-        img.draw_rect(draw_x, draw_y, self.width, self.height, color, -1)
+        img.draw_rect(draw_x, draw_y, self.width, self.height, image.Color.from_rgb(*color), -1)
         
         # Draw checkbox border
-        img.draw_rect(draw_x, draw_y, self.width, self.height, (200, 200, 200), 1)
+        img.draw_rect(draw_x, draw_y, self.width, self.height, image.Color.from_rgb(200, 200, 200), 1)
         
         # Draw checkmark if checked
         if self.checked:
@@ -104,19 +104,19 @@ class Checkbox:
             img.draw_line(
                 center_x - 3, center_y,
                 center_x - 1, center_y + 2,
-                (255, 255, 255), 2
+                image.Color.from_rgb(255, 255, 255), 2
             )
             img.draw_line(
                 center_x - 1, center_y + 2,
                 center_x + 3, center_y - 2,
-                (255, 255, 255), 2
+                image.Color.from_rgb(255, 255, 255), 2
             )
         
         # Draw text
         if self.text:
             text_x = draw_x + self.width + 5
             text_y = draw_y + (self.height - 12) // 2
-            img.draw_string(text_x, text_y, self.text, self.text_color)
+            img.draw_string(text_x, text_y, self.text, image.Color.from_rgb(*self.text_color))
 
 class StatusBar:
     """Status bar UI element"""
@@ -141,7 +141,7 @@ class StatusBar:
         img = image.Image(self.width, self.height, image.Format.FMT_RGB888)
         
         # Fill background
-        img.draw_rect(0, 0, self.width, self.height, self.background_color, -1)
+        img.draw_rect(0, 0, self.width, self.height, image.Color.from_rgb(*self.background_color), -1)
         
         # Draw status information
         y_offset = 5
@@ -149,32 +149,32 @@ class StatusBar:
         
         # App state
         state = self.status_data.get('state', 'UNKNOWN')
-        img.draw_string(5, y_offset, f"State: {state}", self.text_color)
+        img.draw_string(5, y_offset, f"State: {state}", image.Color.from_rgb(*self.text_color))
         y_offset += line_height
         
         # FPS
         if self.status_data.get('fps') is not None:
             fps = self.status_data['fps']
-            img.draw_string(5, y_offset, f"FPS: {fps}", self.text_color)
+            img.draw_string(5, y_offset, f"FPS: {fps}", image.Color.from_rgb(*self.text_color))
             y_offset += line_height
         
         # Memory
         if self.status_data.get('memory_free') is not None:
             memory_mb = self.status_data['memory_free'] // (1024 * 1024)
-            img.draw_string(5, y_offset, f"Memory: {memory_mb}MB", self.text_color)
+            img.draw_string(5, y_offset, f"Memory: {memory_mb}MB", image.Color.from_rgb(*self.text_color))
             y_offset += line_height
         
         # Active AI models
         active_models = self.status_data.get('ai_models_active', [])
         if active_models:
             models_text = f"AI: {len(active_models)} active"
-            img.draw_string(5, y_offset, models_text, self.text_color)
+            img.draw_string(5, y_offset, models_text, image.Color.from_rgb(*self.text_color))
             y_offset += line_height
         
         # Storage usage
         if self.status_data.get('storage_used') is not None:
             storage_mb = self.status_data['storage_used'] // (1024 * 1024)
-            img.draw_string(5, y_offset, f"Storage: {storage_mb}MB", self.text_color)
+            img.draw_string(5, y_offset, f"Storage: {storage_mb}MB", image.Color.from_rgb(*self.text_color))
         
         return img
 
@@ -204,17 +204,17 @@ class ProgressBar:
         draw_y = self.y - offset_y
         
         # Draw background
-        img.draw_rect(draw_x, draw_y, self.width, self.height, self.background_color, -1)
+        img.draw_rect(draw_x, draw_y, self.width, self.height, image.Color.from_rgb(*self.background_color), -1)
         
         # Draw progress
         progress_ratio = (self.current_value - self.min_value) / (self.max_value - self.min_value)
         progress_width = int(self.width * progress_ratio)
         
         if progress_width > 0:
-            img.draw_rect(draw_x, draw_y, progress_width, self.height, self.progress_color, -1)
+            img.draw_rect(draw_x, draw_y, progress_width, self.height, image.Color.from_rgb(*self.progress_color), -1)
         
         # Draw border
-        img.draw_rect(draw_x, draw_y, self.width, self.height, (200, 200, 200), 1)
+        img.draw_rect(draw_x, draw_y, self.width, self.height, image.Color.from_rgb(200, 200, 200), 1)
 
 class TextLabel:
     """Simple text label UI element"""
@@ -235,4 +235,4 @@ class TextLabel:
         draw_y = self.y - offset_y
         
         if self.text:
-            img.draw_string(draw_x, draw_y, self.text, self.text_color)
+            img.draw_string(draw_x, draw_y, self.text, image.Color.from_rgb(*self.text_color))
