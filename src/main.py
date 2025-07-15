@@ -55,7 +55,7 @@ class CompanionCaptureApp:
         
         # Performance monitoring
         self.frame_count = 0
-        self.last_fps_time = time.ticks_ms()
+        self.last_fps_time = maix_time.ticks_ms()
         self.fps = 0
         
         # Initialize all components
@@ -127,7 +127,7 @@ class CompanionCaptureApp:
     def _update_fps(self):
         """Update FPS counter"""
         self.frame_count += 1
-        current_time = time.ticks_ms()
+        current_time = maix_time.ticks_ms()
         
         if time.ticks_diff(current_time, self.last_fps_time) >= 1000:  # Update every second
             self.fps = self.frame_count

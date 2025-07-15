@@ -63,7 +63,7 @@ All features will be implemented using the MaixPy framework and its comprehensiv
 | 1 | Initial Setup | Setup Sipeed MaxiCam hardware and install MaixPy firmware. Verify device functionality. | ✅ |
 | 2 | Development Environment | Install and configure MaixPy IDE. Ensure serial and Wi-Fi connectivity. | ✅ |
 | 3 | UI Design | Design simple user interface with preview, start, stop, log, and detection model toggle checkboxes. | ✅ |
-| 4 | Camera Integration | Develop and test camera preview and video recording functionalities. | 🚧 |
+| 4 | Camera Integration | Develop and test camera preview and video recording functionalities. | ✅ |
 | 5 | Audio Integration | Integrate audio recording and playback functionalities; verify real-time voice recognition. | ☐ |
 | 6 | Object Classification | Implement object classification model; output JSON with timestamp, confidence scores, and sensor details. | ☐ |
 | 7 | Face Recognition & Emotion | Implement facial recognition and emotion detection models; ensure accurate JSON outputs. | ☐ |
@@ -84,15 +84,15 @@ All features will be implemented using the MaixPy framework and its comprehensiv
  
 ### Step 3: UI Design
 **Sub-steps:**
- - [ ] 3.2 Implement custom `Checkbox` class using MaixUI primitives
-- [ ] 3.3 Implement custom `Button` class with touch event handling
-- [ ] 3.4 Design camera preview area (top 80% of screen)
-- [ ] 3.5 Create right sidebar for AI model toggle checkboxes
-- [ ] 3.6 Design bottom action bar with start/stop button and status indicators
-- [ ] 3.7 Implement touch event routing system
-- [ ] 3.8 Add visual feedback for button presses and checkbox states
-- [ ] 3.9 Create application state machine (INITIALIZING, IDLE, CAPTURING, ERROR)
-- [ ] 3.10 Test UI responsiveness and layout on actual device
+- [x] 3.2 Implement custom `Checkbox` class using MaixUI primitives
+- [x] 3.3 Implement custom `Button` class with touch event handling
+- [x] 3.4 Design camera preview area (top 80% of screen)
+- [x] 3.5 Create right sidebar for AI model toggle checkboxes
+- [x] 3.6 Design bottom action bar with start/stop button and status indicators
+- [x] 3.7 Implement touch event routing system
+- [x] 3.8 Add visual feedback for button presses and checkbox states
+- [x] 3.9 Create application state machine (INITIALIZING, IDLE, CAPTURING, ERROR)
+- [x] 3.10 Test UI responsiveness and layout on actual device
 
 ### Step 4: Camera Integration
 **Sub-steps:**

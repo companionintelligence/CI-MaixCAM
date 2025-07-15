@@ -10,6 +10,7 @@ import time
 from maix import image, display, time as maix_time
 from utils.logger import get_logger
 from .ui_elements import Button, Checkbox, StatusBar
+from .model_drawer import ModelDrawer
 
 logger = get_logger('UI')
 
@@ -47,6 +48,7 @@ class MainUI:
         self.buttons = {}
         self.checkboxes = {}
         self.status_bar = None
+        self.model_drawer = None
         
         # Touch state
         self.last_touch_time = 0
@@ -81,7 +83,19 @@ class MainUI:
             color_pressed=(200, 0, 0)
         )
         
-        # AI model checkboxes
+        # Initialize AI Model Drawer (Step 3.5 from PROJECT_PLAN.MD)
+        # Positioned in the right sidebar area
+        models_config = self.config.get("ai_models", {})
+        self.model_drawer = ModelDrawer(
+            x=self.ui_area['x'],
+            y=100,  # Below start/stop button
+            width=self.ui_area['width'],
+            height=300,  # Leave space for exit button
+            models_config=models_config
+        )
+        
+        # Legacy checkboxes (deprecated - replaced by model drawer)
+        # Keeping for backward compatibility during transition
         model_names = [
             "object_detection",
             "face_detection", 
@@ -92,16 +106,17 @@ class MainUI:
             "audio_recognition"
         ]
         
-        y_start = 120
+        y_start = 420  # Moved below model drawer
         for i, model_name in enumerate(model_names):
-            self.checkboxes[model_name] = Checkbox(
-                x=self.ui_area['x'] + 10,
-                y=y_start + (i * 25),
-                width=15,
-                height=15,
-                text=model_name.replace('_', ' ').title()[:8],
-                checked=self.config.is_model_enabled(model_name)
-            )
+            if i < 3:  # Only show first 3 to save space
+                self.checkboxes[model_name] = Checkbox(
+                    x=self.ui_area['x'] + 10,
+                    y=y_start + (i * 20),
+                    width=12,
+                    height=12,
+                    text=model_name.replace('_', ' ').title()[:6],
+                    checked=self.config.is_model_enabled(model_name)
+                )
         
         # Status bar
         self.status_bar = StatusBar(
@@ -111,7 +126,7 @@ class MainUI:
             height=self.screen_height - self.preview_area['height']
         )
         
-        logger.info("UI elements initialized")
+        logger.info("UI elements initialized with AI Model Drawer")
     
     def _map_touch_coordinates(self, touch_x, touch_y):
         """Map touch coordinates to display coordinates"""
@@ -158,10 +173,27 @@ class MainUI:
         if touch_data[0]:  # Touch detected
             raw_x, raw_y = touch_data[1], touch_data[2]
             x, y = self._map_touch_coordinates(raw_x, raw_y)
-            self.last_touch_time = get_time_ms()
+            self.last_touch_time = maix_time.ticks_ms()
             
-            # Map touch coordinates
-            x, y = self._map_touch_coordinates(x, y)
+            # Check model drawer first (highest priority)
+            drawer_action = self.model_drawer.handle_touch(x, y)
+            if drawer_action:
+                if drawer_action == 'model_changed':
+                    # Get updated model configuration
+                    enabled_models = self.model_drawer.get_enabled_models()
+                    events.append({
+                        'type': 'models_updated',
+                        'enabled_models': enabled_models
+                    })
+                elif drawer_action == 'toggle':
+                    events.append({
+                        'type': 'drawer_toggled',
+                        'expanded': self.model_drawer.expanded
+                    })
+                # Clear touch feedback after short delay
+                maix_time.sleep_ms(50)
+                self.model_drawer.clear_touch_feedback()
+                return events
             
             # Check button presses
             for button_name, button in self.buttons.items():
@@ -183,7 +215,7 @@ class MainUI:
                     elif button_name == 'exit':
                         events.append({'type': 'exit_app'})
             
-            # Check checkbox toggles
+            # Check legacy checkbox toggles (if any are still visible)
             for model_name, checkbox in self.checkboxes.items():
                 if checkbox.is_touched(x, y):
                     checkbox.toggle()
@@ -197,6 +229,8 @@ class MainUI:
             # Release button press states
             for button in self.buttons.values():
                 button.set_pressed(False)
+            # Clear model drawer touch feedback
+            self.model_drawer.clear_touch_feedback()
         
         return events
     
@@ -304,13 +338,48 @@ class MainUI:
         # Draw title
         panel_img.draw_string(10, 10, "Controls", image.Color.from_rgb(255, 255, 255))
         
-        # Draw buttons
+        # Draw buttons (positioned relative to panel)
         for button in self.buttons.values():
-            button.draw(panel_img, 0, 0)  # No offset needed for panel-relative coordinates
+            # Adjust button coordinates for panel rendering
+            temp_button = Button(
+                x=button.x - self.ui_area['x'],  # Convert to panel-relative coordinates
+                y=button.y,
+                width=button.width,
+                height=button.height,
+                text=button.text,
+                color_normal=button.color_normal,
+                color_pressed=button.color_pressed
+            )
+            temp_button.pressed = button.pressed
+            temp_button.draw(panel_img, 0, 0)
         
-        # Draw checkboxes
+        # Draw model drawer (positioned relative to panel)
+        # Create temporary drawer with panel-relative coordinates
+        temp_drawer_img = image.Image(panel_img.width(), panel_img.height(), image.Format.FMT_RGB888)
+        temp_drawer_img.draw_rect(0, 0, temp_drawer_img.width(), temp_drawer_img.height(), 
+                                 image.Color.from_rgb(30, 30, 30), -1)
+        
+        # Draw the model drawer on the temporary image
+        self.model_drawer.draw(temp_drawer_img)
+        
+        # Copy the drawer content to the main panel
+        # Note: This is a simple overlay - in a real implementation you might want more sophisticated blending
+        panel_img = temp_drawer_img  # Replace entire panel with drawer content for now
+        
+        # Draw legacy checkboxes if any are visible
         for checkbox in self.checkboxes.values():
-            checkbox.draw(panel_img, 0, 0)  # No offset needed for panel-relative coordinates
+            # Adjust checkbox coordinates for panel rendering
+            temp_checkbox = Checkbox(
+                x=checkbox.x - self.ui_area['x'],  # Convert to panel-relative coordinates
+                y=checkbox.y,
+                width=checkbox.width,
+                height=checkbox.height,
+                text=checkbox.text,
+                checked=checkbox.checked,
+                color_unchecked=checkbox.color_unchecked,
+                color_checked=checkbox.color_checked
+            )
+            temp_checkbox.draw(panel_img, 0, 0)
         
         return panel_img
     

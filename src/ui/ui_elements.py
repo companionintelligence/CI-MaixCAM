@@ -25,9 +25,16 @@ class Button:
         self.pressed = False
     
     def is_touched(self, touch_x, touch_y):
-        """Check if touch coordinates are within button bounds"""
-        return (self.x <= touch_x <= self.x + self.width and 
-                self.y <= touch_y <= self.y + self.height)
+        """Check if touch coordinates are within button bounds with expanded hit area"""
+        # Add 20px buffer around button for easier touch detection
+        hit_area_expansion = 20
+        expanded_x = self.x - hit_area_expansion
+        expanded_y = self.y - hit_area_expansion
+        expanded_width = self.width + (2 * hit_area_expansion)
+        expanded_height = self.height + (2 * hit_area_expansion)
+        
+        return (expanded_x <= touch_x <= expanded_x + expanded_width and 
+                expanded_y <= touch_y <= expanded_y + expanded_height)
     
     def set_pressed(self, pressed):
         """Set button pressed state"""
