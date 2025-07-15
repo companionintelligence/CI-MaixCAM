@@ -1,9 +1,9 @@
 """
-AI Processing Engine
+AI Processing Engine - Clean Version
 Manages all AI models and coordinates processing
 
 Author: Companion Intelligence
-Date: July 13, 2025
+Date: July 14, 2025
 """
 
 import time
@@ -65,7 +65,6 @@ class AIEngine:
             }
         
         elif model_name == "face_detection":
-            # Use Retinaface for better face detection
             self.models[model_name] = {
                 "model": nn.Retinaface(model=model_path, dual_buff=True),
                 "config": model_config,
@@ -73,9 +72,8 @@ class AIEngine:
             }
         
         elif model_name == "face_emotion":
-            # Face emotion requires face detection first
             self.models[model_name] = {
-                "model": None,  # Will be loaded when needed
+                "model": None,
                 "config": model_config,
                 "type": "emotion_classification"
             }
@@ -89,24 +87,21 @@ class AIEngine:
         
         elif model_name == "hand_landmarks":
             self.models[model_name] = {
-                "model": None,  # Hand landmarks model
+                "model": None,
                 "config": model_config,
                 "type": "hand_detection"
             }
         
         elif model_name == "pose_detection":
-            # Use YOLOv8 pose model
             self.models[model_name] = {
                 "model": nn.YOLOv8(model=model_path, dual_buff=True),
                 "config": model_config,
                 "type": "pose_detection"
             }
-                "type": "pose_detection"
-            }
         
         elif model_name == "audio_recognition":
             self.models[model_name] = {
-                "model": None,  # Audio model
+                "model": None,
                 "config": model_config,
                 "type": "audio"
             }
@@ -149,7 +144,7 @@ class AIEngine:
         """Check if model should be processed based on interval"""
         current_time = time.ticks_ms()
         model_config = self.models[model_name]["config"]
-        interval = model_config.get("processing_interval", 1) * 1000  # Convert to ms
+        interval = model_config.get("processing_interval", 1) * 1000
         
         last_time = self.last_process_time.get(model_name, 0)
         
@@ -304,11 +299,10 @@ class AIEngine:
             if poses:
                 pose_list = []
                 for pose in poses:
-                    # Extract keypoints for pose detection
                     pose_data = {
                         "confidence": pose.score,
                         "bbox": [pose.x, pose.y, pose.w, pose.h],
-                        "keypoints": pose.points  # 17 keypoints for human pose
+                        "keypoints": pose.points
                     }
                     pose_list.append(pose_data)
                 
@@ -327,8 +321,7 @@ class AIEngine:
         return events
     
     def _process_emotion_classification(self, img, model, config):
-        """Process emotion classification (requires face detection first)"""
-        # This would typically work on face crops from face detection
+        """Process emotion classification"""
         return []
     
     def _process_ocr(self, img, model, config):
@@ -336,7 +329,6 @@ class AIEngine:
         events = []
         
         try:
-            # Run OCR detection
             text_objs = model.detect(img)
             
             if text_objs:
@@ -365,7 +357,6 @@ class AIEngine:
     
     def _process_hand_detection(self, img, model, config):
         """Process hand landmark detection"""
-        # Hand detection implementation would go here
         return []
     
     def get_performance_stats(self):
