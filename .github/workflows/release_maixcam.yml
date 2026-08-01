@@ -1,8 +1,12 @@
 name: Relase MaixPy for MaixCAM
 
+# >>> ci-local:gated original triggers below, restore with `ci-local restore`
+# on:
+#   release:
+#     types: [published]
+#   workflow_dispatch:
+# <<< ci-local:gated
 on:
-  release:
-    types: [published]
   workflow_dispatch:
 
 permissions: write-all
