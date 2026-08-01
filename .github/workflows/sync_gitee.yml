@@ -9,15 +9,19 @@ name: sync code to gitee
 #     branches: [ master ]
 #   pull_request:
 #     branches: [ master ]
-on: 
-  # Triggers the workflow on push or pull request events but only for the main branch
-  push:
-    branches: [ main ]
-  # pull_request:
-  #   branches: [ main ]
-
-
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+# >>> ci-local:gated original triggers below, restore with `ci-local restore`
+# on: 
+#   # Triggers the workflow on push or pull request events but only for the main branch
+#   push:
+#     branches: [ main ]
+#   # pull_request:
+#   #   branches: [ main ]
+#
+#
+# # A workflow run is made up of one or more jobs that can run sequentially or in parallel
+# <<< ci-local:gated
+on:
+  workflow_dispatch:
 jobs:
   # This workflow contains a single job called "build"
   sync_gitee:

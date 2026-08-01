@@ -3,14 +3,18 @@
 name: Build MaixCAM Dev branch
 
 # Controls when the action will run.
+# >>> ci-local:gated original triggers below, restore with `ci-local restore`
+# on:
+#   # Triggers the workflow on push or pull request events but only for the main branch
+#   push:
+#     branches: [ dev ]
+#   pull_request:
+#     branches: [ dev ]
+# 
+#   # Allows you to run this workflow manually from the Actions tab
+#   workflow_dispatch:
+# <<< ci-local:gated
 on:
-  # Triggers the workflow on push or pull request events but only for the main branch
-  push:
-    branches: [ dev ]
-  pull_request:
-    branches: [ dev ]
-
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
 permissions: write-all
@@ -72,6 +76,7 @@ jobs:
       - name: Upload MaixPy Linux firmware as artifact
         uses: actions/upload-artifact@v4
         with:
+          retention-days: 7
           name: maixpy_firmware
           path: artifact/*.whl
 

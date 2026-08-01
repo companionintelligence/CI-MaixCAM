@@ -3,15 +3,19 @@
 name: trigger wiki
 
 # Controls when the action will run.
+# >>> ci-local:gated original triggers below, restore with `ci-local restore`
+# on:
+#   push:
+#     branches:
+#       - gh-pages
+#   pull_request:
+#     branches:
+#       - gh-pages
+# 
+#   # Allows you to run this workflow manually from the Actions tab
+#   workflow_dispatch:
+# <<< ci-local:gated
 on:
-  push:
-    branches:
-      - gh-pages
-  pull_request:
-    branches:
-      - gh-pages
-
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
 permissions: write-all
