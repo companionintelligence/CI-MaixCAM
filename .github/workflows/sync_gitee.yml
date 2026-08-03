@@ -22,6 +22,11 @@ name: sync code to gitee
 # <<< ci-local:gated
 on:
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # This workflow contains a single job called "build"
   sync_gitee:
