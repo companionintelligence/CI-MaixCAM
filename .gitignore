@@ -1,6 +1,6 @@
-# pytest's compiled test modules. Deliberately NOT a blanket `__pycache__/` or
-# `*.pyc`: this repo already tracks four ordinary bytecode files
-# (src/__pycache__/setup_screen.cpython-313.pyc and three under src/utils/), and
-# a blanket rule would hide them. pytest tags its own output with `-pytest-<ver>`,
-# which none of the tracked files carry.
-*-pytest-*.pyc
+# Python bytecode — compiled output of the .py sources sitting next to it, and
+# specific to the CPython that produced it. Nothing here reads it: the device
+# runtime is MaixPy's CPython 3.11, and the repo has no packaging or deploy step
+# that would carry bytecode onto a MaixCAM.
+__pycache__/
+*.py[cod]
