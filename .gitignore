@@ -1,0 +1,6 @@
+# pytest's compiled test modules. Deliberately NOT a blanket `__pycache__/` or
+# `*.pyc`: this repo already tracks four ordinary bytecode files
+# (src/__pycache__/setup_screen.cpython-313.pyc and three under src/utils/), and
+# a blanket rule would hide them. pytest tags its own output with `-pytest-<ver>`,
+# which none of the tracked files carry.
+*-pytest-*.pyc
