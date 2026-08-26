@@ -10,16 +10,28 @@ import json
 import os
 from typing import Dict, Any
 
+from utils.paths import CONFIG_PATH, ensure_config_dir, migrate_legacy_config
+
 class Config:
     """Configuration manager for the Companion Capture App"""
     
-    def __init__(self, config_path="/sd/config/app_config.json"):
+    def __init__(self, config_path=CONFIG_PATH):
         """Initialize configuration with default values"""
         self.config_path = config_path
         self.config = self._load_default_config()
         
+        # Top-level keys written by other components (the setup screen stores
+        # its model selection in the same file). They are not part of this
+        # schema, so they are held aside on load and written back on save
+        # instead of being silently dropped.
+        self.foreign_keys = {}
+        
         # Create config directory if it doesn't exist
-        os.makedirs(os.path.dirname(config_path), exist_ok=True)
+        ensure_config_dir(config_path)
+        
+        # Seed from a legacy config file if this device predates the
+        # canonical path
+        migrate_legacy_config(config_path)
         
         # Load existing config if available
         self.load_config()
@@ -149,6 +161,12 @@ class Config:
                     loaded_config = json.load(f)
                     # Merge with defaults (only update existing keys)
                     self._merge_config(self.config, loaded_config)
+                    # Keep anything outside this schema so save_config()
+                    # round-trips it instead of destroying it
+                    self.foreign_keys = {
+                        key: value for key, value in loaded_config.items()
+                        if key not in self.config
+                    }
                 print(f"Configuration loaded from {self.config_path}")
             else:
                 # Save default config
@@ -161,8 +179,11 @@ class Config:
     def save_config(self):
         """Save current configuration to file"""
         try:
+            merged = dict(self.config)
+            merged.update(self.foreign_keys)
+            
             with open(self.config_path, 'w') as f:
-                json.dump(self.config, f, indent=2)
+                json.dump(merged, f, indent=2)
             print(f"Configuration saved to {self.config_path}")
         except Exception as e:
             print(f"Error saving config: {e}")

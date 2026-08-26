@@ -23,6 +23,7 @@ from maix import app, display, camera, touchscreen, time as maix_time, image
 from setup_screen import run_setup_screen
 from data_logger.logger import DataLogger
 from utils.config import Config
+from utils.paths import CONFIG_PATH, migrate_legacy_config
 
 # Simplified logging for now
 def log_info(msg):
@@ -34,7 +35,7 @@ def log_error(msg):
 class AIModelManager:
     """Manages all AI models and their states based on setup configuration"""
     
-    def __init__(self, config_path="/sd/companion_config.json"):
+    def __init__(self, config_path=CONFIG_PATH):
         self.config_path = config_path
         self.active_models = {}
         self.model_processors = {}
@@ -48,6 +49,10 @@ class AIModelManager:
     def load_configuration(self):
         """Load AI model configuration from setup screen"""
         try:
+            # Pull forward a legacy config file if this device predates the
+            # canonical path
+            migrate_legacy_config(self.config_path)
+            
             if os.path.exists(self.config_path):
                 with open(self.config_path, 'r') as f:
                     config = json.load(f)

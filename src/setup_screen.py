@@ -16,6 +16,8 @@ from maix import camera, display, image, touchscreen, app, time
 import json
 import os
 
+from utils.paths import CONFIG_PATH, ensure_config_dir, migrate_legacy_config
+
 class SimpleCheckbox:
     """Simple checkbox widget for model selection"""
     
@@ -116,8 +118,8 @@ class SetupScreen:
         self._create_model_checkboxes()
         self._create_control_buttons()
         
-        # Configuration file path
-        self.config_file = "/sd/companion_config.json"
+        # Configuration file path (canonical - see utils/paths.py)
+        self.config_file = CONFIG_PATH
     
     def _create_model_checkboxes(self):
         """Create checkboxes for all AI models from PROJECT_PLAN.MD"""
@@ -250,13 +252,34 @@ class SetupScreen:
                 selected.append(checkbox.text)
         return selected
     
+    def _load_existing_configuration(self):
+        """Read the current configuration file so a save preserves other keys"""
+        
+        # Pull forward a legacy config file if this device predates the
+        # canonical path
+        migrate_legacy_config(self.config_file)
+        
+        try:
+            if os.path.exists(self.config_file):
+                with open(self.config_file, 'r') as f:
+                    existing = json.load(f)
+                if isinstance(existing, dict):
+                    return existing
+        except Exception as e:
+            print(f"⚠️ Could not read existing configuration: {e}")
+        
+        return {}
+    
     def save_configuration(self):
         """Save selected models to configuration file"""
-        config = {
-            "timestamp": time.time(),
-            "selected_models": self.get_selected_models(),
-            "model_states": {}
-        }
+        
+        # The whole app shares one config file, so read what is already there
+        # and update only the keys this screen owns
+        config = self._load_existing_configuration()
+        
+        config["timestamp"] = time.time()
+        config["selected_models"] = self.get_selected_models()
+        config["model_states"] = {}
         
         # Save individual model states
         for checkbox in self.checkboxes:
@@ -264,7 +287,7 @@ class SetupScreen:
         
         try:
             # Ensure directory exists
-            os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
+            ensure_config_dir(self.config_file)
             
             with open(self.config_file, 'w') as f:
                 json.dump(config, f, indent=2)
