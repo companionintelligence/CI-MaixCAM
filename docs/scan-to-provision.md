@@ -69,7 +69,7 @@ endpoint, url, wifi, api_key or server — not one, case-insensitive, across
 the whole file. There is no field for any of the values provisioning would
 deliver.
 
-Meanwhile `src/utils/config.py:128-137` already declares the slots those
+Meanwhile `src/utils/config.py:125-134` already declares the slots those
 values belong in, and ships them empty or fake:
 
 ```python

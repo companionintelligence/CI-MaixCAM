@@ -16,6 +16,13 @@ from maix import camera, display, image, touchscreen, app, time
 import json
 import os
 
+from utils.models import (
+    AUDIO_MODELS,
+    COMPUTER_VISION_MODELS,
+    MEDIA_MODELS,
+    migrate_model_states,
+    read_model_states,
+)
 from utils.paths import CONFIG_PATH, ensure_config_dir, migrate_legacy_config
 
 class SimpleCheckbox:
@@ -110,6 +117,10 @@ class SetupScreen:
         self.display_width = 640
         self.display_height = 480
         
+        # Configuration file path (canonical - see utils/paths.py). Set before
+        # the checkboxes: they are seeded from what this file already holds.
+        self.config_file = CONFIG_PATH
+        
         # Model categories and checkboxes
         self.checkboxes = []
         self.buttons = []
@@ -117,9 +128,6 @@ class SetupScreen:
         # Create checkboxes for all AI models
         self._create_model_checkboxes()
         self._create_control_buttons()
-        
-        # Configuration file path (canonical - see utils/paths.py)
-        self.config_file = CONFIG_PATH
     
     def _create_model_checkboxes(self):
         """Create checkboxes for all AI models from PROJECT_PLAN.MD"""
@@ -129,57 +137,25 @@ class SetupScreen:
         start_y = 60
         row_height = 30
         
-        # Computer Vision models (8 models)
-        cv_models = [
-            "Object Classification",
-            "Face Recognition", 
-            "Face Emotion Detection",
-            "Object Tracking and Counting",
-            "OCR (Optical Character Recognition)",
-            "Hand Landmarks Detection",
-            "Human Pose Classification",
-            "Hand Gesture Classification"
-        ]
-        
-        # Audio Processing models (3 models)
-        audio_models = [
-            "Audio Recording",
-            "Audio Playback", 
-            "Real-time Voice Recognition"
-        ]
-        
-        # Media Capabilities (2 models)
-        media_models = [
-            "Video Recording",
-            "Video Playback"
-        ]
+        # Model names come from utils/models.py, and their state from the one
+        # stored record - so the screen opens showing what the device is
+        # configured to run, and pressing START cannot silently reset it.
+        # Anything the file does not mention falls back to the shared default.
+        model_states = read_model_states(self._load_existing_configuration())
+        sections = (COMPUTER_VISION_MODELS, AUDIO_MODELS, MEDIA_MODELS)
         
         current_y = start_y
         
-        # Add Computer Vision section
-        for i, model in enumerate(cv_models):
-            checkbox = SimpleCheckbox(start_x, current_y, 300, 25, model, 
-                                     checked=(i < 3))  # Default first 3 enabled
-            self.checkboxes.append(checkbox)
-            current_y += row_height
-        
-        # Add spacing between sections
-        current_y += 15
-        
-        # Add Audio Processing section  
-        for model in audio_models:
-            checkbox = SimpleCheckbox(start_x, current_y, 300, 25, model, checked=True)
-            self.checkboxes.append(checkbox)
-            current_y += row_height
-        
-        # Add spacing between sections
-        current_y += 15
-        
-        # Add Media Capabilities section
-        for model in media_models:
-            checkbox = SimpleCheckbox(start_x, current_y, 300, 25, model, checked=True)
-            self.checkboxes.append(checkbox)
-            current_y += row_height
+        for section_index, section in enumerate(sections):
+            for model in section:
+                checkbox = SimpleCheckbox(start_x, current_y, 300, 25, model,
+                                         checked=model_states[model])
+                self.checkboxes.append(checkbox)
+                current_y += row_height
+            
+            # Add spacing between sections
+            if section_index < len(sections) - 1:
+                current_y += 15
     
     def _create_control_buttons(self):
         """Create control buttons"""
@@ -264,6 +240,9 @@ class SetupScreen:
                 with open(self.config_file, 'r') as f:
                     existing = json.load(f)
                 if isinstance(existing, dict):
+                    # Fold an older build's duplicate enabled-state records
+                    # into model_states; saving below persists the cleanup
+                    migrate_model_states(existing)
                     return existing
         except Exception as e:
             print(f"⚠️ Could not read existing configuration: {e}")
@@ -278,10 +257,11 @@ class SetupScreen:
         config = self._load_existing_configuration()
         
         config["timestamp"] = time.time()
-        config["selected_models"] = self.get_selected_models()
         config["model_states"] = {}
         
-        # Save individual model states
+        # Save individual model states. This is the only stored record of
+        # which models run - the enabled list is derived from it on read, so
+        # nothing else in the file can contradict it.
         for checkbox in self.checkboxes:
             config["model_states"][checkbox.text] = checkbox.checked
         
@@ -293,7 +273,7 @@ class SetupScreen:
                 json.dump(config, f, indent=2)
             
             print(f"💾 Configuration saved to {self.config_file}")
-            print(f"🎯 Selected models: {len(config['selected_models'])}")
+            print(f"🎯 Selected models: {len(self.get_selected_models())}")
             return True
             
         except Exception as e:
@@ -324,7 +304,7 @@ class SetupScreen:
         
         # Status information
         selected_count = sum(1 for cb in self.checkboxes if cb.checked)
-        status_text = f"Models Selected: {selected_count}/13"
+        status_text = f"Models Selected: {selected_count}/{len(self.checkboxes)}"
         img.draw_string(350, self.display_height - 30, status_text, 
                        image.Color.from_rgb(150, 150, 150))
 

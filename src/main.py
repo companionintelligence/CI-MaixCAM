@@ -23,6 +23,7 @@ from maix import app, display, camera, touchscreen, time as maix_time, image
 from setup_screen import run_setup_screen
 from data_logger.logger import DataLogger
 from utils.config import Config
+from utils.models import default_model_states, migrate_model_states, read_model_states
 from utils.paths import CONFIG_PATH, migrate_legacy_config
 
 # Simplified logging for now
@@ -57,10 +58,14 @@ class AIModelManager:
                 with open(self.config_path, 'r') as f:
                     config = json.load(f)
                 
-                # Set active models based on configuration
-                model_states = config.get('model_states', {})
-                for model_name, enabled in model_states.items():
-                    self.active_models[model_name] = enabled
+                # Fold an older build's duplicate enabled-state records into
+                # model_states before reading it
+                migrate_model_states(config)
+                
+                # Set active models based on configuration. model_states is
+                # the one stored record of this; anything it omits falls back
+                # to the same default the setup screen offers.
+                self.active_models = read_model_states(config)
                 
                 log_info(f"Loaded configuration with {len([m for m in self.active_models.values() if m])} active models")
             else:
@@ -74,26 +79,8 @@ class AIModelManager:
     
     def _set_default_models(self):
         """Set default active models if no configuration found"""
-        default_models = [
-            "Object Classification",
-            "Face Recognition", 
-            "Audio Recording",
-            "Video Recording"
-        ]
-        
-        all_models = [
-            # Computer Vision
-            "Object Classification", "Face Recognition", "Face Emotion Detection",
-            "Object Tracking and Counting", "OCR (Optical Character Recognition)",
-            "Hand Landmarks Detection", "Human Pose Classification", "Hand Gesture Classification",
-            # Audio Processing  
-            "Audio Recording", "Audio Playback", "Real-time Voice Recognition",
-            # Media Capabilities
-            "Video Recording", "Video Playback"
-        ]
-        
-        for model in all_models:
-            self.active_models[model] = model in default_models
+        # The same defaults the setup screen shows, from utils/models.py
+        self.active_models = default_model_states()
     
     def _initialize_model_processors(self):
         """Initialize processors for each active model"""

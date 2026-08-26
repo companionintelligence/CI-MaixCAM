@@ -10,6 +10,7 @@ import json
 import os
 from typing import Dict, Any
 
+from utils.models import CONFIG_KEY_TO_MODEL, migrate_model_states, read_model_states
 from utils.paths import CONFIG_PATH, ensure_config_dir, migrate_legacy_config
 
 class Config:
@@ -68,51 +69,47 @@ class Config:
                     "height": 480
                 }
             },
+            # Per-model tuning only. Whether a model runs is NOT stored here:
+            # it lives once, in the top-level "model_states" record the setup
+            # screen owns, and is read back through is_model_enabled().
             "ai_models": {
                 "object_detection": {
-                    "enabled": True,
                     "model_path": "/root/models/yolov8n.mud",
                     "confidence_threshold": 0.5,
                     "processing_interval": 3,
                     "priority": 1
                 },
                 "face_detection": {
-                    "enabled": True,
                     "model_path": "/root/models/retinaface.mud",
                     "confidence_threshold": 0.4,
                     "processing_interval": 5,
                     "priority": 2
                 },
                 "face_emotion": {
-                    "enabled": False,
                     "model_path": "/root/models/face_emotion.mud",
                     "confidence_threshold": 0.6,
                     "processing_interval": 10,
                     "priority": 3
                 },
                 "ocr": {
-                    "enabled": False,
                     "model_path": "/root/models/pp_ocr.mud",
                     "confidence_threshold": 0.8,
                     "processing_interval": 15,
                     "priority": 4
                 },
                 "hand_landmarks": {
-                    "enabled": False,
                     "model_path": "/root/models/hand_landmarks.mud",
                     "confidence_threshold": 0.7,
                     "processing_interval": 8,
                     "priority": 5
                 },
                 "pose_detection": {
-                    "enabled": False,
                     "model_path": "/root/models/yolov8n_pose.mud",
                     "confidence_threshold": 0.5,
                     "processing_interval": 12,
                     "priority": 6
                 },
                 "audio_recognition": {
-                    "enabled": False,
                     "processing_interval": 20,
                     "priority": 7
                 }
@@ -159,6 +156,9 @@ class Config:
             if os.path.exists(self.config_path):
                 with open(self.config_path, 'r') as f:
                     loaded_config = json.load(f)
+                    # Fold an older build's duplicate enabled-state records
+                    # into model_states before anything reads them
+                    migrate_model_states(loaded_config)
                     # Merge with defaults (only update existing keys)
                     self._merge_config(self.config, loaded_config)
                     # Keep anything outside this schema so save_config()
@@ -218,13 +218,41 @@ class Config:
             config = config[key]
         config[keys[-1]] = value
     
+    def get_model_states(self) -> Dict[str, bool]:
+        """Get the enabled state of every AI model
+
+        The single stored copy is the top-level "model_states" key the setup
+        screen writes. It is outside this class's schema, so load_config()
+        parks it in foreign_keys and save_config() writes it straight back.
+        """
+        return read_model_states(self.foreign_keys)
+    
     def get_ai_model_config(self, model_name: str) -> Dict[str, Any]:
-        """Get configuration for specific AI model"""
-        return self.get(f"ai_models.{model_name}", {})
+        """Get configuration for specific AI model
+
+        "enabled" is computed from model_states, not read from the stored
+        ai_models entry, so it cannot disagree with what the app runs. The
+        returned dict is a copy: writing to it stores nothing.
+        """
+        model_config = dict(self.get(f"ai_models.{model_name}", {}))
+        if model_config:
+            model_config["enabled"] = self.is_model_enabled(model_name)
+        return model_config
+    
+    def get_ai_models_config(self) -> Dict[str, Any]:
+        """Get every AI model's configuration, enabled state included"""
+        return {
+            model_name: self.get_ai_model_config(model_name)
+            for model_name in self.config["ai_models"]
+        }
     
     def is_model_enabled(self, model_name: str) -> bool:
-        """Check if AI model is enabled"""
-        return self.get(f"ai_models.{model_name}.enabled", False)
+        """Check if AI model is enabled
+
+        A view over model_states, keyed by this class's short model names.
+        """
+        display_name = CONFIG_KEY_TO_MODEL.get(model_name, model_name)
+        return self.get_model_states().get(display_name, False)
     
     def get_enabled_models(self) -> list:
         """Get list of enabled AI models"""
@@ -236,7 +264,14 @@ class Config:
     
     def toggle_model(self, model_name: str, enabled: bool):
         """Toggle AI model on/off"""
-        self.set(f"ai_models.{model_name}.enabled", enabled)
+        display_name = CONFIG_KEY_TO_MODEL.get(model_name, model_name)
+
+        states = self.foreign_keys.get("model_states")
+        if not isinstance(states, dict):
+            states = self.get_model_states()
+            self.foreign_keys["model_states"] = states
+
+        states[display_name] = bool(enabled)
         self.save_config()
     
     def get_camera_config(self) -> Dict[str, Any]:
