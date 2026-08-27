@@ -85,7 +85,9 @@ class MainUI:
         
         # Initialize AI Model Drawer (Step 3.5 from PROJECT_PLAN.MD)
         # Positioned in the right sidebar area
-        models_config = self.config.get("ai_models", {})
+        # Not config.get("ai_models"): the drawer needs each model's enabled
+        # state, which is computed from model_states rather than stored here
+        models_config = self.config.get_ai_models_config()
         self.model_drawer = ModelDrawer(
             x=self.ui_area['x'],
             y=100,  # Below start/stop button

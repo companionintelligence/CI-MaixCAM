@@ -225,6 +225,12 @@ All features will be implemented using the MaixPy framework and its comprehensiv
 - [ ] 13.10 Test storage reliability under continuous operation
 
 ### Step 14: REST API Integration
+
+> Related design note: [`docs/scan-to-provision.md`](docs/scan-to-provision.md) —
+> the device can already decode QR codes and the vendor Settings app already
+> provisions Wi-Fi that way. 14.1 and 14.4 are the two blockers standing
+> between that and scan-to-provision for our own endpoint and enrolment.
+
 **Sub-steps:**
 - [ ] 14.1 Create `NetworkManager` class for Wi-Fi handling
 - [ ] 14.2 Implement `NetworkUploader` class with threading
