@@ -13,17 +13,18 @@ the shipped UX on this hardware, not something we would be inventing.
 
 ## What the hardware already does
 
-Two working examples ship in this repo, both decoding to a payload string and
-four corner points:
+Two working examples ship in Sipeed's [MaixPy examples](https://github.com/sipeed/MaixPy/tree/main/examples)
+(not vendored in this repo — see `docs/License-FAQ.md` for why), both decoding
+to a payload string and four corner points:
 
-- `MaixPy_examples/vision/image_basic/find_qrcodes.py` — `img.find_qrcodes()`
+- `vision/image_basic/find_qrcodes.py` — `img.find_qrcodes()`
   on a 320x240 camera, then `q.payload()` and `q.corners()` per result.
-- `MaixPy_examples/vision/image_basic/find_qrcodes_faster.py` — the faster
+- `vision/image_basic/find_qrcodes_faster.py` — the faster
   path, `image.QRCodeDetector().detect(img)` on a 320x224 camera, with
   per-frame `detect use N ms` timing already printed.
 
 And the stock vendor Settings app **already provisions Wi-Fi by scanning a
-QR code**. From `MaixPy_docs/doc/en/network/network_settings.md:11`:
+QR code**. From Sipeed's [MaixPy docs](https://github.com/sipeed/MaixPy/tree/main/docs), network settings page:
 
 > After powering on, enter the `Settings` application and select the `WiFi`
 > function. You can connect by sharing a `WiFi QR code` from your phone or by
@@ -40,7 +41,7 @@ same way, and getting them into a file the app actually reads.
 The only occurrence of the string `wifi` in the whole of `src/` is the config
 default `"wifi_enabled": True` in `src/utils/config.py`. There is no code that
 associates with an access point. The SDK API exists and is documented in
-`MaixPy_docs/doc/en/network/network_settings.md` (`network.wifi.Wifi()`,
+Sipeed's MaixPy docs, network settings page (`network.wifi.Wifi()`,
 `w.connect(SSID, PASSWORD, wait=True, timeout=60)`, `w.get_ip()`); nothing in
 this repo calls it. This is `PROJECT_PLAN.MD` step 14.1, still unchecked.
 
@@ -113,7 +114,7 @@ photographed one buys nothing at all if the real device redeemed first.
 
 The Wi-Fi PSK is the harder case and is deliberately **out of scope here**:
 the vendor Settings app already handles Wi-Fi QR provisioning
-(`network_settings.md:11`), so the device can be on the network before our
+(Sipeed's MaixPy docs, network settings page), so the device can be on the network before our
 app ever runs. We should use that path rather than build a second one that
 puts a PSK into a payload we control.
 
