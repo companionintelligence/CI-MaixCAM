@@ -1,2 +1,0 @@
-
-# see examples/vision/touchscreen
