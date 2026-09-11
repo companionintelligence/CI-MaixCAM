@@ -2,19 +2,19 @@
 
 name: Build MaixCAM Dev branch
 
-# Controls when the action will run.
-# >>> ci-local:gated original triggers below, restore with `ci-local restore`
-# on:
-#   # Triggers the workflow on push or pull request events but only for the main branch
-#   push:
-#     branches: [ dev ]
-#   pull_request:
-#     branches: [ dev ]
-# 
-#   # Allows you to run this workflow manually from the Actions tab
-#   workflow_dispatch:
-# <<< ci-local:gated
+# Restored 2026-09-10 (was gated to workflow_dispatch-only in the August 2026
+# org-wide cost pass). Found during an org-level CI/CD health audit — the
+# build job below was ALSO a no-op even when manually dispatched, because of
+# a leftover `if: github.repository == 'sipeed/MaixPy'` guard inherited from
+# the upstream project this was forked from; that guard is removed below too.
 on:
+  # Triggers the workflow on push or pull request events but only for the main branch
+  push:
+    branches: [ dev ]
+  pull_request:
+    branches: [ dev ]
+
+  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
 concurrency:
@@ -27,8 +27,6 @@ permissions: write-all
 jobs:
   # This workflow contains a single job called "build"
   build:
-    # Only run job for specific repository
-    if: github.repository == 'sipeed/MaixPy'
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
     strategy:
