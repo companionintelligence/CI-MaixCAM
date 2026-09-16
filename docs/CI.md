@@ -24,46 +24,10 @@ _No local checks detected._
 
 ### Run a check workflow on GitHub
 
-**Build MaixCAM** — `build_maixcam.yml`
-
-```bash
-gh workflow run build_maixcam.yml --repo companionintelligence/CI-MaixCAM --ref main
-```
-
-**Build MaixCAM Dev branch** — `build_maixcam_dev.yml`
-
-```bash
-gh workflow run build_maixcam_dev.yml --repo companionintelligence/CI-MaixCAM --ref main
-```
-
-**Build MaixCAM PR** — `build_maixcam_main_pr.yml`
-
-```bash
-gh workflow run build_maixcam_main_pr.yml --repo companionintelligence/CI-MaixCAM --ref main
-```
-
-**sync code to gitee** — `sync_gitee.yml`
-
-```bash
-gh workflow run sync_gitee.yml --repo companionintelligence/CI-MaixCAM --ref main
-```
-
-**trigger wiki** — `trigger_wiki.yml`
-
-```bash
-gh workflow run trigger_wiki.yml --repo companionintelligence/CI-MaixCAM --ref main
-```
-
-### Cut a release
-
-**Relase MaixPy for MaixCAM** — `release_maixcam.yml`
-
-```bash
-gh workflow run release_maixcam.yml --repo companionintelligence/CI-MaixCAM --ref main
-```
-
-**Relase MaixPy for Linux** — `release_other_linux.yml`
-
-```bash
-gh workflow run release_other_linux.yml --repo companionintelligence/CI-MaixCAM --ref main
-```
+_No workflows configured._ The seven previously listed here (`build_maixcam.yml`,
+`build_maixcam_dev.yml`, `build_maixcam_main_pr.yml`, `release_maixcam.yml`,
+`release_other_linux.yml`, `sync_gitee.yml`, `trigger_wiki.yml`) were
+unattributed vendored copies of [sipeed/MaixPy](https://github.com/sipeed/MaixPy)'s
+own build/release/sync CI — not this app's CI — and have been removed. See
+[`docs/License-FAQ.md`](License-FAQ.md#where-did-the-maixpy-build-release-and-sync-workflows-go)
+for why.
