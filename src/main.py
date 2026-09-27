@@ -22,6 +22,7 @@ import gc
 from maix import app, display, camera, touchscreen, time as maix_time, image
 from setup_screen import run_setup_screen
 from data_logger.logger import DataLogger
+from network.uploader import NetworkUploader
 from utils.config import Config
 from utils.models import default_model_states, migrate_model_states, read_model_states
 from utils.paths import CONFIG_PATH, migrate_legacy_config
@@ -309,10 +310,11 @@ class CompanionCaptureApp:
         self.display = None
         self.touchscreen = None
         
-        # Initialize AI model manager and data logger
+        # Initialize AI model manager, data logger and CI-Server uploader
         self.ai_manager = None
         self.data_logger = None
-        
+        self.network_uploader = None
+
         # Performance monitoring
         self.frame_count = 0
         self.last_fps_time = maix_time.ticks_ms()
@@ -325,7 +327,8 @@ class CompanionCaptureApp:
         self._initialize_hardware()
         self._initialize_ai_manager()
         self._initialize_data_logger()
-        
+        self._initialize_network_uploader()
+
         log_info("Companion Capture App initialized successfully")
         self.state = "IDLE"
     
@@ -374,11 +377,26 @@ class CompanionCaptureApp:
             log_info("Initializing Data Logger...")
             self.data_logger = DataLogger(self.config)
             log_info("Data Logger initialized successfully")
-            
+
         except Exception as e:
             log_error(f"Data Logger initialization failed: {e}")
             self.state = "ERROR"
             raise
+
+    def _initialize_network_uploader(self):
+        """Initialize the CI-Server uploader for logged AI events"""
+        try:
+            log_info("Initializing Network Uploader...")
+            self.network_uploader = NetworkUploader(self.config)
+            log_info("Network Uploader initialized successfully")
+
+        except Exception as e:
+            # Sync to CI-Server is best-effort - local logging must keep
+            # working even with no network configured, so this does not
+            # escalate to self.state = "ERROR" the way the other
+            # initializers do.
+            log_error(f"Network Uploader initialization failed: {e}")
+            self.network_uploader = None
     
     def _update_fps(self):
         """Update FPS counter"""
@@ -408,7 +426,9 @@ class CompanionCaptureApp:
                     # Stop capturing
                     self.capturing = False
                     self.state = "IDLE"
+                    session_file = self.data_logger.current_session_file
                     self.data_logger.end_session()
+                    self._queue_session_for_upload(session_file)
                     log_info("🛑 Capture mode: STOPPED")
                 return True
             
@@ -530,21 +550,32 @@ class CompanionCaptureApp:
         try:
             # End data logging session if active using existing DataLogger
             if self.data_logger and self.capturing:
+                session_file = self.data_logger.current_session_file
                 self.data_logger.end_session()
+                self._queue_session_for_upload(session_file)
                 log_info("Data logging session ended")
-            
+
             # Close camera
             if self.camera:
                 self.camera.close()
                 log_info("Camera closed")
-            
+
+            # Stop the upload thread (queued files are picked up next launch)
+            if self.network_uploader:
+                self.network_uploader.cleanup()
+
             # Final garbage collection
             gc.collect()
-            
+
         except Exception as e:
             log_error(f"Cleanup error: {e}")
-        
+
         log_info("Application cleanup completed")
+
+    def _queue_session_for_upload(self, session_file):
+        """Hand a just-ended session's log file to the CI-Server uploader"""
+        if self.network_uploader and session_file:
+            self.network_uploader.queue_file_for_upload(session_file)
 
 def main():
     """Main entry point with setup screen integration"""

@@ -232,15 +232,15 @@ All features will be implemented using the MaixPy framework and its comprehensiv
 > between that and scan-to-provision for our own endpoint and enrolment.
 
 **Sub-steps:**
-- [ ] 14.1 Create `NetworkManager` class for Wi-Fi handling
-- [ ] 14.2 Implement `NetworkUploader` class with threading
-- [ ] 14.3 Add REST endpoint configuration (URL, authentication)
-- [ ] 14.4 Implement HTTP POST requests using `requests` library
-- [ ] 14.5 Add JSON payload formatting for API calls
-- [ ] 14.6 Implement retry logic with exponential backoff
-- [ ] 14.7 Add upload progress tracking and status reporting
-- [ ] 14.8 Handle network errors and disconnections gracefully
-- [ ] 14.9 Implement upload queue management
+- [x] 14.1 Create `NetworkManager` class for Wi-Fi handling
+- [x] 14.2 Implement `NetworkUploader` class with threading
+- [x] 14.3 Add REST endpoint configuration (URL, authentication)
+- [x] 14.4 Implement HTTP POST requests using `requests` library
+- [x] 14.5 Add JSON payload formatting for API calls
+- [x] 14.6 Implement retry logic with exponential backoff
+- [x] 14.7 Add upload progress tracking and status reporting
+- [x] 14.8 Handle network errors and disconnections gracefully
+- [x] 14.9 Implement upload queue management
 - [ ] 14.10 Test API integration with mock server
 
 ### Step 15: Detection Model Toggles

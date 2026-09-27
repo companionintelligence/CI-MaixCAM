@@ -22,9 +22,9 @@ def sleep_ms(ms):
     time.sleep(ms / 1000.0)
 
 def get_iso_timestamp():
-    """Get current time as ISO format string"""
+    """Get current time as an ISO 8601 UTC timestamp string"""
     import datetime
-    return datetime.datetime.now().isoformat()
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 def get_free_memory():
     """Get free memory in bytes (simplified estimate)"""
