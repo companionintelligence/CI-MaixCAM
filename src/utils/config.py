@@ -42,7 +42,7 @@ class Config:
         return {
             "app": {
                 "name": "Companion Capture",
-                "version": "1.0.0",
+                "version": "1.2.0",
                 "debug": False,
                 "log_level": "INFO"
             },

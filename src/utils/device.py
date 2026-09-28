@@ -42,6 +42,23 @@ def get_maixpy_version():
         return "unknown"
 
 
+def get_cpu_temp_celsius():
+    """CPU temperature in Celsius, or None when unavailable
+
+    Reads the standard Linux sysfs thermal zone (reported in millidegrees
+    C), the same off-device-tolerant style utils/time_utils.py's
+    get_free_memory() already applies to /proc/meminfo - no maix
+    dependency, so this reads identically on MaixCAM's own Linux userspace
+    and fails safe (None) everywhere else, including off-device.
+    """
+    try:
+        with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
+            millidegrees = int(f.read().strip())
+        return millidegrees / 1000.0
+    except Exception:
+        return None
+
+
 def get_stable_device_id(config):
     """A device id that survives restarts, even off real MaixCAM hardware
 

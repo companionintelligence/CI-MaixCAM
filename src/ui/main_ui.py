@@ -276,54 +276,61 @@ class MainUI:
             
             return img
     
+    # Per event-type overlay color. Anything not listed (e.g. audio/voice
+    # events, which carry no bbox at all) just never draws a box.
+    _OVERLAY_COLORS = {
+        'object_detection': (0, 255, 0),
+        'face_detection': (255, 0, 0),
+        'ocr_detection': (0, 100, 255),
+        'pose_detection': (255, 255, 0),
+        'hand_landmarks': (255, 0, 255),
+        'object_tracking': (0, 200, 200),
+    }
+
     def _draw_ai_overlays(self, img):
-        """Draw AI detection overlays on the preview image"""
+        """Draw AI detection overlays on the preview image
+
+        Every detector emits the same unified "detections" list (see
+        src/ai/*.py), so one generic loop covers every event type instead of
+        special-casing a couple of them - OCR/pose/hand/tracking results now
+        render here too, which they never did under the old per-type code.
+        """
         for result in self.ai_results:
             result_type = result.get('type', '')
-            
-            if result_type == 'object_detection':
-                # Draw bounding boxes for objects
-                for obj in result.get('objects', []):
-                    x, y, w, h = obj['bbox']
-                    confidence = obj['confidence']
-                    label = obj['label']
-                    
-                    # Scale coordinates to preview size
-                    scale_x = self.preview_area['width'] / self.current_frame.width()
-                    scale_y = self.preview_area['height'] / self.current_frame.height()
-                    
-                    x = int(x * scale_x)
-                    y = int(y * scale_y)
-                    w = int(w * scale_x)
-                    h = int(h * scale_y)
-                    
-                    # Draw bounding box
-                    img.draw_rect(x, y, w, h, image.Color.from_rgb(0, 255, 0), 2)
-                    
-                    # Draw label
-                    label_text = f"{label} {confidence:.2f}"
-                    img.draw_string(x, y-20, label_text, image.Color.from_rgb(0, 255, 0))
-            
-            elif result_type == 'face_detection':
-                # Draw face bounding boxes
-                for face in result.get('faces', []):
-                    x, y, w, h = face['bbox']
-                    
-                    # Scale and draw
-                    scale_x = self.preview_area['width'] / self.current_frame.width()
-                    scale_y = self.preview_area['height'] / self.current_frame.height()
-                    
-                    x = int(x * scale_x)
-                    y = int(y * scale_y)
-                    w = int(w * scale_x)
-                    h = int(h * scale_y)
-                    
-                    img.draw_rect(x, y, w, h, image.Color.from_rgb(255, 0, 0), 2)
-                    
-                    # Draw emotion if available
-                    if 'emotion' in face:
-                        emotion_text = f"{face['emotion']} {face.get('emotion_confidence', 0):.2f}"
-                        img.draw_string(x, y-20, emotion_text, image.Color.from_rgb(255, 0, 0))
+            color = image.Color.from_rgb(*self._OVERLAY_COLORS.get(result_type, (200, 200, 200)))
+
+            for detection in result.get('detections', []):
+                bbox = detection.get('bbox')
+                if not bbox:
+                    continue  # e.g. audio/voice detections carry no spatial box
+
+                x, y, w, h = bbox
+
+                # Scale coordinates to preview size
+                scale_x = self.preview_area['width'] / self.current_frame.width()
+                scale_y = self.preview_area['height'] / self.current_frame.height()
+
+                x = int(x * scale_x)
+                y = int(y * scale_y)
+                w = int(w * scale_x)
+                h = int(h * scale_y)
+
+                img.draw_rect(x, y, w, h, color, 2)
+
+                label = detection.get('label', result_type)
+                confidence = detection.get('confidence', 0)
+                label_text = f"{label} {confidence:.2f}"
+
+                # Fold in whichever type-specific annotation this detection
+                # carries (emotion/gesture/posture/recognized text).
+                extra = (detection.get('emotion') or detection.get('gesture')
+                         or detection.get('posture') or detection.get('text'))
+                if extra:
+                    label_text += f" [{extra}]"
+                if 'track_id' in detection:
+                    label_text += f" #{detection['track_id']}"
+
+                img.draw_string(x, y - 20, label_text, color)
     
     def _get_ui_panel_image(self):
         """Get the UI panel image"""

@@ -12,20 +12,24 @@ This is the main application that orchestrates all components:
 
 Author: Companion Intelligence
 Date: July 14, 2025
-Version: 1.1.0
+Version: 1.2.0
 """
 
 import sys
-import os
-import json
 import gc
 from maix import app, display, camera, touchscreen, time as maix_time, image
 from setup_screen import run_setup_screen
 from data_logger.logger import DataLogger
 from network.uploader import NetworkUploader
 from utils.config import Config
-from utils.models import default_model_states, migrate_model_states, read_model_states
-from utils.paths import CONFIG_PATH, migrate_legacy_config
+from utils.device import get_cpu_temp_celsius
+from ai.object_detector import ObjectDetector
+from ai.face_detector import FaceDetector
+from ai.object_tracker import ObjectTracker
+from ai.ocr_detector import OcrDetector
+from ai.hand_detector import HandDetector
+from ai.pose_detector import PoseDetector
+from ai.audio_processor import AudioProcessor
 
 # Simplified logging for now
 def log_info(msg):
@@ -35,262 +39,215 @@ def log_error(msg):
     print(f"[ERROR] {msg}")
 
 class AIModelManager:
-    """Manages all AI models and their states based on setup configuration"""
-    
-    def __init__(self, config_path=CONFIG_PATH):
-        self.config_path = config_path
-        self.active_models = {}
+    """Owns real detector instances for every toggled-on model and schedules
+    them per frame.
+
+    Only a toggled-on model is ever instantiated: MaixCAM's camera, NPU and
+    model weights share one small memory pool (see docs/research-notes.md),
+    so a device with two models enabled never pays another eleven models'
+    worth of that budget (PROJECT_PLAN.MD 15.3/15.6). Each processor also
+    only actually runs every `processing_interval` frames (its own
+    ai_models.<key> config value, previously read but never applied -
+    PROJECT_PLAN.MD 17.2/17.3), and Object Tracking and Counting reuses
+    Object Classification's own detections instead of running YOLOv8 a
+    second time on the same frame when both are enabled - MaixCAM's NPU
+    executes one model at a time, so a second concurrent model is pure
+    added latency, not parallel work.
+    """
+
+    def __init__(self, config):
+        self.config = config
+        self.active_models = config.get_model_states()
+
+        # display_name -> instance exposing .process(img) -> event|None
         self.model_processors = {}
-        
-        # Load configuration from setup screen
-        self.load_configuration()
-        
-        # Initialize model processors
+        self._processing_intervals = {}
+
+        # Every real detector instance created, for cleanup() and status
+        # reporting. A shared instance (e.g. one FaceDetector backing both
+        # "Face Recognition" and "Face Emotion Detection") appears once here
+        # even though it may be reachable through model_processors too.
+        self._instances = []
+
+        # Object Tracking and Counting rides on a detector's own per-frame
+        # detections rather than being scheduled through model_processors
+        # itself - see _update_tracking().
+        self.object_tracker = None
+        self._tracking_detector = None
+
+        self.frame_index = 0
+
         self._initialize_model_processors()
-    
-    def load_configuration(self):
-        """Load AI model configuration from setup screen"""
+
+    def _register(self, display_name, processor, config_key):
+        """Schedule `processor` under `display_name` at its own configured cadence"""
+        self.model_processors[display_name] = processor
+        interval = self.config.get_ai_model_config(config_key).get("processing_interval", 1)
         try:
-            # Pull forward a legacy config file if this device predates the
-            # canonical path
-            migrate_legacy_config(self.config_path)
-            
-            if os.path.exists(self.config_path):
-                with open(self.config_path, 'r') as f:
-                    config = json.load(f)
-                
-                # Fold an older build's duplicate enabled-state records into
-                # model_states before reading it
-                migrate_model_states(config)
-                
-                # Set active models based on configuration. model_states is
-                # the one stored record of this; anything it omits falls back
-                # to the same default the setup screen offers.
-                self.active_models = read_model_states(config)
-                
-                log_info(f"Loaded configuration with {len([m for m in self.active_models.values() if m])} active models")
-            else:
-                log_error(f"Configuration file not found: {self.config_path}")
-                # Set default models
-                self._set_default_models()
-                
-        except Exception as e:
-            log_error(f"Failed to load configuration: {e}")
-            self._set_default_models()
-    
-    def _set_default_models(self):
-        """Set default active models if no configuration found"""
-        # The same defaults the setup screen shows, from utils/models.py
-        self.active_models = default_model_states()
-    
+            interval = int(interval)
+        except (TypeError, ValueError):
+            interval = 1
+        self._processing_intervals[display_name] = max(1, interval)
+
     def _initialize_model_processors(self):
-        """Initialize processors for each active model"""
-        
-        # Computer Vision Models
+        """Instantiate a real detector only for each toggled-on model"""
+
+        object_detector = None
         if self.active_models.get("Object Classification", False):
-            self.model_processors["Object Classification"] = self._create_object_classifier()
-        
-        if self.active_models.get("Face Recognition", False):
-            self.model_processors["Face Recognition"] = self._create_face_recognizer()
-        
-        if self.active_models.get("Face Emotion Detection", False):
-            self.model_processors["Face Emotion Detection"] = self._create_emotion_detector()
-        
-        if self.active_models.get("Object Tracking and Counting", False):
-            self.model_processors["Object Tracking and Counting"] = self._create_object_tracker()
-        
+            object_detector = ObjectDetector(self.config.get_ai_model_config("object_detection"))
+            self._instances.append(object_detector)
+            self._register("Object Classification", object_detector, "object_detection")
+            log_info("✅ Object Classification processor ready")
+
+        # Face Recognition and Face Emotion Detection are ONE pipeline
+        # (emotion is a second stage over face detection's own faces, see
+        # ai/face_detector.py) - registered under a single slot either way
+        # so it is never invoked twice in the same frame.
+        face_enabled = self.active_models.get("Face Recognition", False)
+        emotion_enabled = self.active_models.get("Face Emotion Detection", False)
+        if face_enabled or emotion_enabled:
+            face_config = self.config.get_ai_model_config("face_detection")
+            emotion_config = self.config.get_ai_model_config("face_emotion") if emotion_enabled else None
+            face_detector = FaceDetector(face_config, emotion_config)
+            self._instances.append(face_detector)
+            if face_enabled:
+                self._register("Face Recognition", face_detector, "face_detection")
+            else:
+                self._register("Face Emotion Detection", face_detector, "face_emotion")
+            log_info(f"✅ Face Recognition processor ready (emotion: {emotion_enabled})")
+
         if self.active_models.get("OCR (Optical Character Recognition)", False):
-            self.model_processors["OCR (Optical Character Recognition)"] = self._create_ocr_processor()
-        
-        if self.active_models.get("Hand Landmarks Detection", False):
-            self.model_processors["Hand Landmarks Detection"] = self._create_hand_detector()
-        
+            ocr_detector = OcrDetector(self.config.get_ai_model_config("ocr"))
+            self._instances.append(ocr_detector)
+            self._register("OCR (Optical Character Recognition)", ocr_detector, "ocr")
+            log_info("✅ OCR processor ready")
+
+        # Same one-pipeline-two-toggles shape as face/emotion above.
+        hand_enabled = self.active_models.get("Hand Landmarks Detection", False)
+        gesture_enabled = self.active_models.get("Hand Gesture Classification", False)
+        if hand_enabled or gesture_enabled:
+            landmarks_config = self.config.get_ai_model_config("hand_landmarks")
+            gesture_config = self.config.get_ai_model_config("hand_gesture") if gesture_enabled else None
+            hand_detector = HandDetector(landmarks_config, gesture_config)
+            self._instances.append(hand_detector)
+            if hand_enabled:
+                self._register("Hand Landmarks Detection", hand_detector, "hand_landmarks")
+            else:
+                self._register("Hand Gesture Classification", hand_detector, "hand_gesture")
+            log_info(f"✅ Hand Landmarks Detection processor ready (gesture: {gesture_enabled})")
+
         if self.active_models.get("Human Pose Classification", False):
-            self.model_processors["Human Pose Classification"] = self._create_pose_classifier()
-        
-        if self.active_models.get("Hand Gesture Classification", False):
-            self.model_processors["Hand Gesture Classification"] = self._create_gesture_classifier()
-        
-        # Audio Processing Models
-        if self.active_models.get("Audio Recording", False):
-            self.model_processors["Audio Recording"] = self._create_audio_recorder()
-        
-        if self.active_models.get("Audio Playback", False):
-            self.model_processors["Audio Playback"] = self._create_audio_player()
-        
-        if self.active_models.get("Real-time Voice Recognition", False):
-            self.model_processors["Real-time Voice Recognition"] = self._create_voice_recognizer()
-        
-        # Media Capabilities
-        if self.active_models.get("Video Recording", False):
-            self.model_processors["Video Recording"] = self._create_video_recorder()
-        
-        if self.active_models.get("Video Playback", False):
-            self.model_processors["Video Playback"] = self._create_video_player()
-        
-        active_count = len(self.model_processors)
-        log_info(f"Initialized {active_count} AI model processors")
-    
-    # Model processor creation methods (to be implemented with actual AI models)
-    def _create_object_classifier(self):
-        log_info("✅ Object Classification processor ready")
-        return {"type": "object_classification", "initialized": True}
-    
-    def _create_face_recognizer(self):
-        log_info("✅ Face Recognition processor ready")
-        return {"type": "face_recognition", "initialized": True}
-    
-    def _create_emotion_detector(self):
-        log_info("✅ Face Emotion Detection processor ready")
-        return {"type": "emotion_detection", "initialized": True}
-    
-    def _create_object_tracker(self):
-        log_info("✅ Object Tracking and Counting processor ready")
-        return {"type": "object_tracking", "initialized": True}
-    
-    def _create_ocr_processor(self):
-        log_info("✅ OCR processor ready")
-        return {"type": "ocr", "initialized": True}
-    
-    def _create_hand_detector(self):
-        log_info("✅ Hand Landmarks Detection processor ready")
-        return {"type": "hand_detection", "initialized": True}
-    
-    def _create_pose_classifier(self):
-        log_info("✅ Human Pose Classification processor ready")
-        return {"type": "pose_classification", "initialized": True}
-    
-    def _create_gesture_classifier(self):
-        log_info("✅ Hand Gesture Classification processor ready")
-        return {"type": "gesture_classification", "initialized": True}
-    
-    def _create_audio_recorder(self):
-        log_info("✅ Audio Recording processor ready")
-        return {"type": "audio_recording", "initialized": True}
-    
-    def _create_audio_player(self):
-        log_info("✅ Audio Playback processor ready")
-        return {"type": "audio_playback", "initialized": True}
-    
-    def _create_voice_recognizer(self):
-        log_info("✅ Real-time Voice Recognition processor ready")
-        return {"type": "voice_recognition", "initialized": True}
-    
-    def _create_video_recorder(self):
-        log_info("✅ Video Recording processor ready")
-        return {"type": "video_recording", "initialized": True}
-    
-    def _create_video_player(self):
-        log_info("✅ Video Playback processor ready")
-        return {"type": "video_playback", "initialized": True}
-    
+            pose_detector = PoseDetector(self.config.get_ai_model_config("pose_detection"))
+            self._instances.append(pose_detector)
+            self._register("Human Pose Classification", pose_detector, "pose_detection")
+            log_info("✅ Human Pose Classification processor ready")
+
+        # "Audio Recording" and "Real-time Voice Recognition" share one
+        # config entry (ai_models.audio_recognition) and one AudioProcessor,
+        # which itself treats them as mutually exclusive per call (an armed
+        # recording takes priority - see ai/audio_processor.py), so a single
+        # scheduled slot is correct even with both toggled on.
+        recording_enabled = self.active_models.get("Audio Recording", False)
+        voice_enabled = self.active_models.get("Real-time Voice Recognition", False)
+        if recording_enabled or voice_enabled:
+            audio_processor = AudioProcessor(self.config.get_ai_model_config("audio_recognition"))
+            self._instances.append(audio_processor)
+            if recording_enabled:
+                audio_processor.start_recording()
+                self._register("Audio Recording", audio_processor, "audio_recognition")
+            else:
+                self._register("Real-time Voice Recognition", audio_processor, "audio_recognition")
+            log_info(f"✅ Audio processor ready (recording: {recording_enabled}, voice: {voice_enabled})")
+
+        # Audio Playback, Video Recording and Video Playback are on-demand
+        # actions a caller triggers directly, not per-frame detectors polled
+        # from process_frame() - nothing to schedule here for them. Video
+        # capture has no maix.video wrapper yet and is not one of
+        # PROJECT_PLAN.MD's numbered steps 1-19.
+
+        if self.active_models.get("Object Tracking and Counting", False):
+            # Reuse Object Classification's own detector when it exists
+            # (avoids a second YOLOv8 pass on the same frame); otherwise
+            # stand up a dedicated one just for tracking.
+            self._tracking_detector = object_detector or ObjectDetector(
+                self.config.get_ai_model_config("object_detection")
+            )
+            if self._tracking_detector is not object_detector:
+                self._instances.append(self._tracking_detector)
+            self.object_tracker = ObjectTracker(self.config.get_ai_model_config("object_tracking"))
+            self._processing_intervals["Object Tracking and Counting"] = max(
+                1, int(self.config.get_ai_model_config("object_tracking").get("processing_interval", 1) or 1)
+            )
+            log_info("✅ Object Tracking and Counting processor ready")
+
+        log_info(
+            f"Initialized {len(self._instances)} AI model instance(s), "
+            f"{len(self.model_processors)} scheduled detector slot(s)"
+        )
+
+    def _should_run_now(self, display_name):
+        interval = self._processing_intervals.get(display_name, 1)
+        return self.frame_index % interval == 0
+
     def process_frame(self, img):
-        """Process camera frame through all active AI models"""
+        """Process one camera frame through every active, due-this-frame model"""
         events = []
-        
-        # Process through each active model
+        # Memoized per instance for this frame only, so a detector shared
+        # between a scheduled slot and tracking never runs twice on one img.
+        frame_cache = {}
+
+        def run_once(detector):
+            key = id(detector)
+            if key not in frame_cache:
+                frame_cache[key] = detector.process(img)
+            return frame_cache[key]
+
         for model_name, processor in self.model_processors.items():
+            if not self._should_run_now(model_name):
+                continue
             try:
-                if processor.get("initialized", False):
-                    # Mock processing for now - replace with actual AI processing
-                    event = self._mock_process(model_name, processor, img)
-                    if event:
-                        events.append(event)
+                event = run_once(processor)
+                if event:
+                    events.append(event)
             except Exception as e:
                 log_error(f"Error processing {model_name}: {e}")
-        
+
+        if self.object_tracker is not None and self._should_run_now("Object Tracking and Counting"):
+            try:
+                detection_event = run_once(self._tracking_detector)
+                detections = detection_event["detections"] if detection_event else []
+                tracking_event = self.object_tracker.update(detections, self.frame_index)
+                if tracking_event:
+                    events.append(tracking_event)
+            except Exception as e:
+                log_error(f"Error processing Object Tracking and Counting: {e}")
+
+        self.frame_index += 1
         return events
-    
-    def _mock_process(self, model_name, processor, img):
-        """Mock AI processing - replace with actual model inference"""
-        # For now, return mock detection every 60 frames for demo
-        if hasattr(self, '_frame_count'):
-            self._frame_count += 1
-        else:
-            self._frame_count = 0
-        
-        if self._frame_count % 60 == 0:  # Every 2 seconds at 30fps
-            # Create event in format expected by existing DataLogger
-            event = {
-                "timestamp": maix_time.ticks_ms(),
-                "type": self._get_event_type(processor["type"]),
-                "model": model_name,
-                "processing_time_ms": 15,  # Mock processing time
-                "confidence": 0.85
-            }
-            
-            # Add type-specific data structure
-            if processor["type"] == "object_classification":
-                event.update({
-                    "objects": [
-                        {
-                            "class": "person",
-                            "confidence": 0.85,
-                            "bbox": [100, 100, 50, 100]
-                        }
-                    ]
-                })
-            elif processor["type"] == "face_recognition":
-                event.update({
-                    "faces": [
-                        {
-                            "confidence": 0.90,
-                            "bbox": [150, 80, 60, 80],
-                            "landmarks": [[160, 100], [180, 100], [170, 120]]
-                        }
-                    ]
-                })
-            elif processor["type"] == "audio_recording":
-                event.update({
-                    "audio_data": {
-                        "duration_ms": 1000,
-                        "sample_rate": 16000,
-                        "channels": 1
-                    }
-                })
-            elif processor["type"] == "video_recording":
-                event.update({
-                    "video_data": {
-                        "frame_count": 30,
-                        "duration_ms": 1000,
-                        "resolution": "640x480"
-                    }
-                })
-            else:
-                event.update({
-                    "details": f"Mock detection from {model_name}",
-                    "raw_data": {"mock": True}
-                })
-            
-            return event
-        return None
-    
-    def _get_event_type(self, processor_type):
-        """Map processor type to event type for DataLogger"""
-        type_mapping = {
-            "object_classification": "object_detection",
-            "face_recognition": "face_detection", 
-            "emotion_detection": "emotion_detection",
-            "object_tracking": "object_tracking",
-            "ocr": "ocr_detection",
-            "hand_detection": "hand_landmarks",
-            "pose_classification": "pose_detection",
-            "gesture_classification": "gesture_detection",
-            "audio_recording": "audio_event",
-            "audio_playback": "audio_event",
-            "voice_recognition": "voice_recognition",
-            "video_recording": "video_event",
-            "video_playback": "video_event"
-        }
-        return type_mapping.get(processor_type, "unknown_event")
-    
+
     def get_active_models(self):
         """Get list of currently active model names"""
         return [name for name, active in self.active_models.items() if active]
-    
+
     def get_model_count(self):
         """Get count of active models"""
         return len([active for active in self.active_models.values() if active])
+
+    def get_model_status(self):
+        """Per-instance loaded/unloaded status, for diagnostics (PROJECT_PLAN 15.10)"""
+        return {
+            display_name: getattr(processor, "loaded", True)
+            for display_name, processor in self.model_processors.items()
+        }
+
+    def cleanup(self):
+        """Release every real detector instance this manager created"""
+        for instance in self._instances:
+            try:
+                instance.cleanup()
+            except Exception as e:
+                log_error(f"Error cleaning up an AI model instance: {e}")
+
 class CompanionCaptureApp:
     """Main application class that coordinates all subsystems"""
     
@@ -363,7 +320,7 @@ class CompanionCaptureApp:
         """Initialize AI model manager with setup configuration"""
         try:
             log_info("Initializing AI Model Manager...")
-            self.ai_manager = AIModelManager()
+            self.ai_manager = AIModelManager(self.config)
             log_info(f"AI Manager initialized with {self.ai_manager.get_model_count()} active models")
             
         except Exception as e:
@@ -398,6 +355,28 @@ class CompanionCaptureApp:
             log_error(f"Network Uploader initialization failed: {e}")
             self.network_uploader = None
     
+    def _is_thermal_throttled(self):
+        """True when the device is over its configured thermal threshold
+
+        AI inference is the heaviest per-frame cost, so this gates that,
+        not the capture/display loop itself (PROJECT_PLAN.MD 17.6/17.9).
+        Fails open (never throttles) when the temperature can't be read at
+        all, e.g. off-device - it never guesses.
+        """
+        perf_config = self.config.get_performance_config()
+        if not perf_config.get("thermal_throttling_enabled", True):
+            return False
+
+        temp = get_cpu_temp_celsius()
+        if temp is None:
+            return False
+
+        threshold = perf_config.get("thermal_threshold_celsius", 75)
+        if temp >= threshold:
+            log_error(f"Thermal throttling: CPU at {temp:.1f}C (threshold {threshold}C), skipping AI this frame")
+            return True
+        return False
+
     def _update_fps(self):
         """Update FPS counter"""
         self.frame_count += 1
@@ -511,13 +490,14 @@ class CompanionCaptureApp:
                 # Process AI if capturing
                 if self.state == "CAPTURING":
                     try:
-                        ai_events = self.ai_manager.process_frame(img)
+                        ai_events = [] if self._is_thermal_throttled() else self.ai_manager.process_frame(img)
                         
                         # Log AI events to file
                         if ai_events:
                             self.data_logger.log_events(ai_events)
                             for event in ai_events:
-                                log_info(f"🤖 AI Event: {event['model']} - {event['details']}")
+                                count = len(event.get("detections", []))
+                                log_info(f"🤖 AI Event: {event['model']} ({event['type']}) - {count} detection(s)")
                                 
                     except Exception as e:
                         log_error(f"AI processing error: {e}")
@@ -559,6 +539,10 @@ class CompanionCaptureApp:
             if self.camera:
                 self.camera.close()
                 log_info("Camera closed")
+
+            # Release AI model instances
+            if self.ai_manager:
+                self.ai_manager.cleanup()
 
             # Stop the upload thread (queued files are picked up next launch)
             if self.network_uploader:

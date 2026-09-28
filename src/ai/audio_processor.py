@@ -318,7 +318,7 @@ class AudioProcessor:
 
         samples = decode_pcm_s16le(raw)
         raw_level = mean_abs_amplitude(samples)
-        level = normalize_level(raw_level)
+        level = compute_audio_level(samples)
 
         if level < self.activity_threshold:
             return None
@@ -343,13 +343,17 @@ class AudioProcessor:
         """
         try:
             from maix import audio as maix_audio
+            from maix import err as maix_err
             player = maix_audio.Player(
                 path=file_path,
                 sample_rate=self.sample_rate,
                 channel=self.channel,
             )
-            err = player.play()
-            return not bool(err)
+            # Compare explicitly against ERR_NONE rather than `bool(err)`:
+            # MaixPy's pybind11 enum bindings are not guaranteed falsy at
+            # their zero member, so a plain truthiness check could read
+            # every successful play() as a failure.
+            return player.play() == maix_err.Err.ERR_NONE
         except Exception as e:
             logger.error(f"AudioProcessor: play('{file_path}') failed: {e}")
             return False
