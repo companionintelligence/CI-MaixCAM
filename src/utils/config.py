@@ -129,8 +129,19 @@ class Config:
                 "retry_attempts": 3,
                 "retry_delay_seconds": 30,
                 "batch_size": 50,
-                "endpoint_url": "https://api.example.com/upload",
+                # Base URL of the user's CI-Server instance, e.g.
+                # "https://companion.example.com" - no path suffix. The
+                # uploader appends /v1/events etc. itself. Empty until the
+                # device is actually pointed at a server.
+                "endpoint_url": "",
                 "api_key": "",
+                # Fallback device identity, used only when maix.sys.device_key()
+                # isn't available (off real MaixCAM hardware). Generated once by
+                # utils/device.get_stable_device_id() and persisted here so it
+                # survives restarts - see that function for why it must be a
+                # declared key: Config._merge_config only round-trips keys
+                # that already exist in this default schema.
+                "device_id": "",
                 "timeout_seconds": 30
             },
             "ui": {

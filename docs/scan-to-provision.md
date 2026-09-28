@@ -3,6 +3,20 @@
 > **Status: not implemented.** This is a record of the opportunity and of
 > what stands in the way of it. No code in `src/` scans a QR code today.
 > Written 2026-08-26.
+>
+> **Update 2026-09-27 — blockers 1 and 2 are resolved; the scan itself is
+> still not built.** `src/network/network_manager.py` now wraps
+> `maix.network.wifi.Wifi` (blocker 1), and `src/network/uploader.py` now
+> POSTs real `CaptureEvent`s to CI-Server's `/v1/events` (+ `/v1/ingest/finish`)
+> using an `x-api-key` credential from config, instead of `_mock_http_post()`
+> (blocker 2) — see `README.md`'s "Connecting to CI-Server" section for the
+> config fields. `endpoint_url`'s default is now `""`, not `api.example.com`.
+> What's still missing, and still exactly what this note calls out below: a
+> server-side claim/enrolment endpoint a scanned QR could redeem for that
+> `api_key` automatically. Today the key is still typed in by hand, same as
+> every other device on the platform — this note's "Security rule for the
+> payload" section is a design for that endpoint, not a description of one
+> that exists.
 
 CI-MaixCAM is the one device on the Companion Intelligence platform that can
 already decode a QR code and does not use that ability for anything. Every
@@ -120,8 +134,10 @@ puts a PSK into a payload we control.
 
 ## Sequencing
 
-Blocker 3 is done. Blockers 1 and 2 are prerequisites — a scan is only worth
-implementing once there is a network to join and a server to enrol with.
-The natural order is `PROJECT_PLAN.MD` step 14.1 (`NetworkManager`), then a
-real transport in `src/network/uploader.py` with CI-Server enrolment, then
-the scan as the input method that feeds both.
+Blockers 1, 2 and 3 are done (see the 2026-09-27 update above). What is left
+is exactly the part blocker 2 didn't attempt: a CI-Server endpoint that
+exchanges a short-lived claim for a real `api_key`, plus the QR scan itself
+(`img.find_qrcodes()` / `image.QRCodeDetector()`, both already available in
+the SDK per "What the hardware already does" above) as the input method that
+feeds it. Until that endpoint exists, `network.api_key` is configured by
+hand, same as every other device on the platform.

@@ -1,0 +1,12 @@
+# CI-MaixCAM dependencies
+#
+# The `maix` module (MaixPy v4, MaixCDK-based) is NOT a pip package: it ships
+# with the on-device firmware. Keep it current via the MaixVision IDE / the
+# official firmware images (https://github.com/sipeed/MaixPy/releases), not
+# pip. Only pure-Python packages can be pip-installed on MaixCAM itself
+# (https://wiki.sipeed.com/maixpy/doc/en/basic/python_pkgs.html) - both
+# packages below qualify.
+
+requests>=2.31.0   # HTTP client used to POST captured events to CI-Server
+
+pytest>=8.0.0      # test runner (dev-only; not needed on-device)

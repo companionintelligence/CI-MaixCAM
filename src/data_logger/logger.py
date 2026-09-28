@@ -12,8 +12,8 @@ import time
 import uuid
 from datetime import datetime
 from utils.logger import get_logger
-from utils.time_utils import get_time_ms, get_free_memory
-from utils.time_utils import get_time_ms, get_iso_timestamp
+from utils.time_utils import get_time_ms, get_free_memory, get_iso_timestamp
+from utils.device import get_device_key, get_device_name, get_maixpy_version
 
 logger = get_logger('DataLogger')
 
@@ -163,16 +163,14 @@ class DataLogger:
         """Process and standardize an event before logging"""
         # Generate unique event ID
         event_id = str(uuid.uuid4())
-        
-        # Standardize timestamp
-        if "timestamp" in event:
-            # Convert ticks_ms to ISO format
-            timestamp_ms = event["timestamp"]
-            # Note: This is a simplified conversion, real implementation would need proper time handling
-            timestamp_iso = datetime.now().isoformat()
-        else:
-            timestamp_iso = datetime.now().isoformat()
-        
+
+        # Standardize timestamp. event["timestamp"], when present, is a
+        # maix.time.ticks_ms() reading - a monotonic counter with no fixed
+        # epoch, so it cannot be converted to wall-clock time on its own; the
+        # ms value is kept as-is below (timestamp_ms) for on-device frame
+        # timing, and the human/CI-Server-facing timestamp is wall-clock now.
+        timestamp_iso = get_iso_timestamp()
+
         # Create standardized event structure
         processed_event = {
             "event_id": event_id,
@@ -222,8 +220,9 @@ class DataLogger:
     def _get_device_info(self):
         """Get device information"""
         return {
-            "device_type": "MaixCAM",
-            "firmware_version": "unknown",  # Would be populated from actual device
+            "device_type": get_device_name(),
+            "device_id": get_device_key(),
+            "firmware_version": get_maixpy_version(),
             "app_version": self.config.get("app.version", "1.0.0")
         }
     
