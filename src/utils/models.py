@@ -58,8 +58,10 @@ CONFIG_KEY_TO_MODEL = {
     "object_detection": "Object Classification",
     "face_detection": "Face Recognition",
     "face_emotion": "Face Emotion Detection",
+    "object_tracking": "Object Tracking and Counting",
     "ocr": "OCR (Optical Character Recognition)",
     "hand_landmarks": "Hand Landmarks Detection",
+    "hand_gesture": "Hand Gesture Classification",
     "pose_detection": "Human Pose Classification",
     "audio_recognition": "Real-time Voice Recognition",
 }

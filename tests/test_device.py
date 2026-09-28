@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from utils.config import Config  # noqa: E402
 from utils.device import (  # noqa: E402
+    get_cpu_temp_celsius,
     get_device_key,
     get_device_name,
     get_maixpy_version,
@@ -33,6 +34,13 @@ class TestOffDeviceFallbacks(unittest.TestCase):
 
     def test_device_name_falls_back_to_unknown(self):
         self.assertEqual(get_device_name(), "unknown")
+
+    def test_cpu_temp_never_raises(self):
+        # No assumption on the value: some Linux hosts (unlike MaixCAM)
+        # genuinely expose thermal_zone0, so this only checks the contract -
+        # None, or a plausible numeric reading - never an exception.
+        temp = get_cpu_temp_celsius()
+        self.assertTrue(temp is None or isinstance(temp, (int, float)))
 
     def test_maixpy_version_falls_back_to_unknown(self):
         self.assertEqual(get_maixpy_version(), "unknown")

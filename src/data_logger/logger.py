@@ -112,16 +112,70 @@ class DataLogger:
             logger.info(f"Ended logging session: {self.current_session_id}")
             logger.info(f"Session duration: {duration:.1f} seconds")
             logger.info(f"Events logged: {self.events_logged}")
-            
+
+            self._update_index(session_data)
+
             # Cleanup
             self.session_active = False
             self.current_session_file = None
             self.current_session_id = None
             self.events_logged = 0
-            
+
         except Exception as e:
             logger.error(f"Error ending session: {e}")
-    
+
+    def _update_index(self, session_data):
+        """Record this completed session in a small storage-wide index
+
+        A quick-access summary (PROJECT_PLAN.MD 13.9) so a caller can list
+        sessions - or find one by id/time range - without opening and
+        parsing every session file in base_path, which only gets more
+        expensive as the archive grows.
+        """
+        index_path = os.path.join(self.base_path, "index.json")
+        try:
+            if os.path.exists(index_path):
+                with open(index_path, 'r') as f:
+                    index = json.load(f)
+            else:
+                index = {"sessions": []}
+
+            entry = {
+                "session_id": session_data.get("session_id"),
+                "file_name": os.path.basename(self.current_session_file),
+                "start_time": session_data.get("start_time"),
+                "end_time": session_data.get("end_time"),
+                "total_events": session_data.get("total_events", 0),
+            }
+
+            # A re-run of end_session() for the same session replaces its
+            # entry rather than duplicating it.
+            index["sessions"] = [
+                s for s in index.get("sessions", []) if s.get("session_id") != entry["session_id"]
+            ]
+            index["sessions"].append(entry)
+
+            temp_path = index_path + ".tmp"
+            with open(temp_path, 'w') as f:
+                json.dump(index, f, indent=2)
+            os.rename(temp_path, index_path)
+
+        except Exception as e:
+            logger.error(f"Failed to update session index: {e}")
+
+    def list_sessions(self):
+        """Read the session index back (PROJECT_PLAN.MD 13.9's "quick access")
+
+        Returns [] when no session has completed yet or the index can't be
+        read - never raises.
+        """
+        index_path = os.path.join(self.base_path, "index.json")
+        try:
+            with open(index_path, 'r') as f:
+                return json.load(f).get("sessions", [])
+        except Exception:
+            return []
+
     def log_events(self, events):
         """Log a list of AI detection events"""
         if not self.session_active:
@@ -191,22 +245,15 @@ class DataLogger:
         return processed_event
     
     def _extract_confidence_scores(self, event):
-        """Extract confidence scores from event"""
-        scores = []
-        
-        if event.get("type") == "object_detection":
-            for obj in event.get("objects", []):
-                scores.append(obj.get("confidence", 0))
-        
-        elif event.get("type") == "face_detection":
-            for face in event.get("faces", []):
-                scores.append(face.get("confidence", 0))
-        
-        elif event.get("type") == "pose_detection":
-            for pose in event.get("poses", []):
-                scores.append(pose.get("confidence", 0))
-        
-        return scores
+        """Extract confidence scores from event
+
+        Every detector now emits the same unified "detections" list (see
+        src/ai/*.py), so one generic pass covers every event type instead of
+        special-casing a handful of them - object/face/pose detection, but
+        also OCR, hand landmarks, gestures, emotion and audio, which
+        previously fell through with no confidence scores extracted at all.
+        """
+        return [detection.get("confidence", 0) for detection in event.get("detections", [])]
     
     def _extract_event_data(self, event):
         """Extract relevant data from event"""

@@ -11,6 +11,7 @@ Run with:  python3 -m unittest discover tests
 import os
 import sys
 import json
+import gzip
 import tempfile
 import shutil
 import unittest
@@ -165,6 +166,38 @@ class TestUploadSingleFile(UploaderTestCase):
         mock_post.return_value = FakeResponse(500, "boom")
 
         self.assertFalse(self.uploader._upload_single_file(session_file))
+
+
+class TestMoveUploadedFile(UploaderTestCase):
+    """Archiving after a successful upload (PROJECT_PLAN.MD 13.7)"""
+
+    def _write_plain_file(self, content=b'{"events": []}'):
+        path = os.path.join(self.config_dir, "session_test.json")
+        with open(path, "wb") as f:
+            f.write(content)
+        return path
+
+    def test_compresses_into_the_uploaded_folder_by_default(self):
+        session_file = self._write_plain_file(b'{"events": [1, 2, 3]}')
+
+        self.uploader._move_uploaded_file(session_file)
+
+        self.assertFalse(os.path.exists(session_file))
+        uploaded_path = os.path.join(self.config_dir, "uploaded", "session_test.json.gz")
+        self.assertTrue(os.path.exists(uploaded_path))
+        with gzip.open(uploaded_path, "rb") as f:
+            self.assertEqual(f.read(), b'{"events": [1, 2, 3]}')
+
+    def test_leaves_the_file_uncompressed_when_disabled(self):
+        self.config.set("storage.compression_enabled", False)
+        self.uploader = NetworkUploader(self.config)
+        session_file = self._write_plain_file()
+
+        self.uploader._move_uploaded_file(session_file)
+
+        self.assertFalse(os.path.exists(session_file))
+        uploaded_path = os.path.join(self.config_dir, "uploaded", "session_test.json")
+        self.assertTrue(os.path.exists(uploaded_path))
 
 
 if __name__ == '__main__':

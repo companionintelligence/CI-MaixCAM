@@ -29,5 +29,29 @@ device at a server by setting, in its config file (`/sd/companion_config.json`):
 - `network.upload_enabled` - `true` to turn syncing on
 
 Uploads are skipped while Wi-Fi is disconnected and retried with backoff; nothing is
-deleted locally until a batch is confirmed uploaded.
- 
+deleted locally until a batch is confirmed uploaded. See
+[`docs/ci-server-api.md`](docs/ci-server-api.md) for the wire format.
+
+## AI detection
+
+Object classification, face recognition + emotion, object tracking &
+counting, OCR, hand landmarks + gesture, human pose classification, and
+audio recording / voice recognition are all implemented against the real
+`maix.nn`/`maix.audio` APIs under [`src/ai/`](src/ai/) - see
+[`docs/architecture.md`](docs/architecture.md) for the module map and the
+unified event schema they all share, and
+[`docs/research-notes.md`](docs/research-notes.md) for how other
+MaixCAM/MaixPy projects handle running several NN models on one device.
+
+## Documentation
+
+- [`docs/user-guide.md`](docs/user-guide.md) - setup and day-to-day use
+- [`docs/architecture.md`](docs/architecture.md) - code structure, data flow, event schema
+- [`docs/configuration.md`](docs/configuration.md) - every `companion_config.json` field
+- [`docs/ci-server-api.md`](docs/ci-server-api.md) - the CI-Server wire format
+- [`docs/troubleshooting.md`](docs/troubleshooting.md) - common issues
+- [`docs/deployment.md`](docs/deployment.md) - deployment checklist, monitoring, backup/recovery
+- [`docs/research-notes.md`](docs/research-notes.md) - findings from other MaixCAM/MaixPy projects
+- [`docs/scan-to-provision.md`](docs/scan-to-provision.md) - a QR-based device-enrolment design (not yet built)
+- [`CHANGELOG.md`](CHANGELOG.md) - release notes
+

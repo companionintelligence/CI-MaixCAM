@@ -9,6 +9,8 @@ Date: July 13, 2025
 import os
 import json
 import time
+import gzip
+import shutil
 import threading
 from queue import Queue, Empty
 
@@ -76,6 +78,7 @@ class NetworkUploader:
         """Initialize network uploader"""
         self.config = config
         self.network_config = config.get_network_config()
+        self.storage_config = config.get_storage_config()
 
         # Upload configuration
         self.enabled = self.network_config.get("upload_enabled", False)
@@ -303,17 +306,30 @@ class NetworkUploader:
             logger.debug(f"ingest/finish nudge failed (self-heals server-side): {e}")
     
     def _move_uploaded_file(self, file_path):
-        """Move successfully uploaded file to uploaded folder"""
+        """Move successfully uploaded file to uploaded folder
+
+        Gzipped when storage.compression_enabled is set (PROJECT_PLAN.MD
+        13.7): CI-Server already has this data, so the archive copy is kept
+        only as a local backup, and compressing it here - after upload,
+        never before - can't affect what NetworkUploader reads and sends.
+        """
         try:
             uploaded_dir = os.path.join(os.path.dirname(file_path), "uploaded")
             os.makedirs(uploaded_dir, exist_ok=True)
-            
+
             filename = os.path.basename(file_path)
-            uploaded_path = os.path.join(uploaded_dir, filename)
-            
-            os.rename(file_path, uploaded_path)
+
+            if self.storage_config.get("compression_enabled", True):
+                uploaded_path = os.path.join(uploaded_dir, filename + ".gz")
+                with open(file_path, 'rb') as src, gzip.open(uploaded_path, 'wb') as dst:
+                    shutil.copyfileobj(src, dst)
+                os.remove(file_path)
+            else:
+                uploaded_path = os.path.join(uploaded_dir, filename)
+                os.rename(file_path, uploaded_path)
+
             logger.debug(f"Moved uploaded file to: {uploaded_path}")
-            
+
         except Exception as e:
             logger.error(f"Failed to move uploaded file: {e}")
     
