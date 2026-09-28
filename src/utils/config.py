@@ -103,11 +103,30 @@ class Config:
                     "processing_interval": 8,
                     "priority": 5
                 },
+                # No dedicated gesture model is confirmed to ship on MaixCAM
+                # (see src/ai/hand_detector.py); model_path is kept for
+                # forward-compat but the class falls back to a geometric
+                # heuristic over hand_landmarks' output when it is absent.
+                "hand_gesture": {
+                    "model_path": "/root/models/hand_gesture.mud",
+                    "confidence_threshold": 0.6,
+                    "processing_interval": 8,
+                    "priority": 5
+                },
                 "pose_detection": {
                     "model_path": "/root/models/yolov8n_pose.mud",
                     "confidence_threshold": 0.5,
                     "processing_interval": 12,
                     "priority": 6
+                },
+                # Pure-algorithm tracker over object_detection's own output -
+                # no model file. max_track_age_frames is how long a track
+                # survives with no matching detection before it is retired.
+                "object_tracking": {
+                    "confidence_threshold": 0.3,
+                    "max_track_age_frames": 30,
+                    "processing_interval": 1,
+                    "priority": 1
                 },
                 "audio_recognition": {
                     "processing_interval": 20,
