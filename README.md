@@ -1,6 +1,9 @@
-# Companion Capture App
+<h1 align="center">Companion Capture App</h1>
 
-A comprehensive life-logging application for the Sipeed MaixCAM device using the MaixPy framework.
+<p align="center"><strong>A comprehensive life-logging application for the Sipeed MaixCAM device using the MaixPy framework.</strong></p>
+
+<p align="center"><a href="#documentation">Documentation</a></p>
+
 
 https://wiki.sipeed.com/hardware/en/maixcam/index.html
 
@@ -54,4 +57,3 @@ MaixCAM/MaixPy projects handle running several NN models on one device.
 - [`docs/research-notes.md`](docs/research-notes.md) - findings from other MaixCAM/MaixPy projects
 - [`docs/scan-to-provision.md`](docs/scan-to-provision.md) - a QR-based device-enrolment design (not yet built)
 - [`CHANGELOG.md`](CHANGELOG.md) - release notes
-
