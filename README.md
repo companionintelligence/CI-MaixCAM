@@ -1,6 +1,9 @@
-# Companion Capture App
+<h1 align="center">Companion Capture App</h1>
 
-A comprehensive life-logging application for the Sipeed MaixCAM device using the MaixPy framework.
+<p align="center"><strong>A comprehensive life-logging application for the Sipeed MaixCAM device using the MaixPy framework.</strong></p>
+
+<p align="center"><a href="#documentation">Documentation</a> · <a href="https://docs.ci.computer/docs/reference/open-source-systems">Systems map</a></p>
+
 
 https://wiki.sipeed.com/hardware/en/maixcam/index.html
 
@@ -54,4 +57,30 @@ MaixCAM/MaixPy projects handle running several NN models on one device.
 - [`docs/research-notes.md`](docs/research-notes.md) - findings from other MaixCAM/MaixPy projects
 - [`docs/scan-to-provision.md`](docs/scan-to-provision.md) - a QR-based device-enrolment design (not yet built)
 - [`CHANGELOG.md`](CHANGELOG.md) - release notes
+
+<!-- companion-hub-readme-deep-review -->
+
+## Device compatibility and event flow
+
+| Area | Supported/documented path |
+|---|---|
+| Device | MaixCAM and MaixCAM-Pro |
+| Runtime | MaixPy v4 firmware with the MaixCDK-based SDK |
+| Firmware provisioning | MaixVision or the MaixPy device releases; firmware is not installed with `pip` |
+| Configuration | `/sd/companion_config.json` on the device |
+| Server sync | Optional, authenticated CI-Server event upload; uploads ended sessions and retries when offline |
+
+```mermaid
+flowchart LR
+  Camera[Camera and device sensors] --> AI[On-device AI modules]
+  AI --> Session[Local session/event data]
+  Session --> Gate{Upload enabled?}
+  Gate -->|No| Local[Keep data on device]
+  Gate -->|Yes| Queue[Queue ended session]
+  Queue --> API[Authenticated CI-Server API]
+  API -->|confirmed| Done[Mark session synced]
+  API -->|offline/error| Retry[Retry with backoff]
+```
+
+The scan-to-provision workflow is a design proposal, not an implemented setup path. See the configuration and troubleshooting guides before changing network or upload settings.
 
