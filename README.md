@@ -1,9 +1,17 @@
-<h1 align="center">Companion Capture App</h1>
+<h1 align="center">Companion Capture for MaixCAM</h1>
 
 <p align="center"><strong>A comprehensive life-logging application for the Sipeed MaixCAM device using the MaixPy framework.</strong></p>
 
+[![release](https://img.shields.io/badge/release-not%20published-757575?style=flat-square)](https://github.com/companionintelligence/CI-MaixCAM/releases)
+[![platform](https://img.shields.io/badge/platform-MaixCAM%20%C2%B7%20MaixCAM-Pro-0a6358?style=flat-square)](https://github.com/companionintelligence/CI-MaixCAM)
+[![License](https://img.shields.io/badge/license-PolyForm%20NC%201.0-0a6358?style=flat-square)](LICENSE.md)
+[![Discord](https://img.shields.io/badge/chat-Discord-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.com/invite/yQp9hwpzAa)
+
 <p align="center"><a href="#documentation">Documentation</a> · <a href="https://docs.ci.computer/docs/reference/open-source-systems">Systems map</a></p>
 
+<p align="center">
+  <a href="#documentation"><img src="https://img.shields.io/badge/Device%20setup-Device%20setup-0a6358?style=for-the-badge&logo=github&logoColor=white" alt="Device setup" height="30"></a>
+</p>
 
 https://wiki.sipeed.com/hardware/en/maixcam/index.html
 
@@ -14,6 +22,16 @@ device firmware via the MaixVision IDE or the [MaixPy releases page](https://git
 [`maix.sys`](https://wiki.sipeed.com/maixpy/api/maix/sys.html) and
 [`maix.network.wifi`](https://wiki.sipeed.com/maixpy/api/maix/network/wifi.html)
 for the device-identity and Wi-Fi APIs this app builds on.
+
+
+## Features
+
+| Feature | What it provides |
+|---|---|
+| **Camera perception** | Run independent MaixPy detector modules against MaixCAM frames. |
+| **Unified event records** | Normalize detector output and save session JSON locally. |
+| **Optional Memory sync** | Queue session uploads and retry when Wi-Fi returns. |
+
 
 ## Project Overview
 
@@ -59,6 +77,19 @@ MaixCAM/MaixPy projects handle running several NN models on one device.
 - [`CHANGELOG.md`](CHANGELOG.md) - release notes
 
 <!-- companion-hub-readme-deep-review -->
+
+
+## How it fits together
+
+MaixPy runs detectors on device frames, records normalized session events locally and sends queued uploads to the configured Memory API when networking is enabled.
+
+```mermaid
+flowchart LR
+  Camera[MaixCAM camera] --> Detectors[MaixPy detector modules]
+  Detectors --> Events[Normalized JSON events]
+  Events --> Session[Local session log and queue]
+  Session -->|optional Wi-Fi sync| Memory[Companion Memory ingest]
+```
 
 ## Device compatibility and event flow
 
