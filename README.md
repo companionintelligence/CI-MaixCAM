@@ -2,7 +2,7 @@
 
 <p align="center"><strong>A comprehensive life-logging application for the Sipeed MaixCAM device using the MaixPy framework.</strong></p>
 
-<p align="center"><a href="#documentation">Documentation</a></p>
+<p align="center"><a href="#documentation">Documentation</a> · <a href="https://docs.ci.computer/docs/reference/open-source-systems">Systems map</a></p>
 
 
 https://wiki.sipeed.com/hardware/en/maixcam/index.html
